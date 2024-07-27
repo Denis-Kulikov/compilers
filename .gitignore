@@ -1,32 +1,33 @@
-# Prerequisites
-*.d
+bin/*
+!bin/.keep
 
-# Compiled Object files
-*.slo
-*.lo
+build
+lib
+
+callgrind.*
+
+_deps
+#external/pugixml
+
+CMakeFiles
+cmake_install.cmake
+CMakeCache.txt
+CPackConfig.cmake
+CPackSourceConfig.cmake
+DartConfiguration.tcl
+Makefile
+
+.ninja_deps
+.ninja_log
+build.ninja
+
+.vscode
+cmake-run.sh
+code_style.sh
+run.sh
+
+index/entries
+index/docs/
+
 *.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
 *.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app

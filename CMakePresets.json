@@ -1,0 +1,76 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+        "generator": "Ninja",
+        "displayName": "base",
+        "hidden": true
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "valgrind",
+      "inherits": "base",
+      "displayName": "Valgrind",
+      "description": "Build with debugging symbols for Valgrind",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-g",
+        "CMAKE_C_FLAGS": "-g"
+      }
+    },
+    {
+      "name": "win",
+        "generator": "Visual Studio 17 2022",
+        "displayName": "win",
+        "cacheVariables": {
+          "CMAKE_BUILD_TYPE": "Release"
+        }
+    }
+  ],
+    "buildPresets": [
+      {
+        "name": "base",
+        "configurePreset": "base",
+        "jobs": 8
+      },
+      {
+        "name": "release",
+        "configurePreset": "release",
+        "jobs": 8
+      },
+      {
+        "name": "debug",
+        "configurePreset": "debug",
+        "jobs": 8
+      },
+      {
+        "name": "valgrind",
+        "configurePreset": "valgrind",
+        "jobs": 8
+      }, 
+      {
+        "name": "win",
+        "configurePreset": "win",
+        "jobs": 8
+      }
+    ]
+}
