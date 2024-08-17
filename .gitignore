@@ -1,5 +1,8 @@
 lexer
 lex.yy.cc
+lex.yy.c
+parser.tab.c
+parser.tab.h
 
 bin/*
 !bin/.keep

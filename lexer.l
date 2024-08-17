@@ -1,8 +1,5 @@
 %{
-#include <iostream>
-#include <string>
-
-using namespace std;
+#include "parser.tab.h"
 %}
 
 %option noyywrap
