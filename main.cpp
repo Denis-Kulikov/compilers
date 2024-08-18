@@ -1,25 +1,29 @@
-#include <iostream>
-#include <fstream>
-#include <FlexLexer.h>
+#include <stdio.h>
 
-using namespace std;
+// Объявляем внешние функции, генерируемые Flex и Bison
+extern FILE *yyin;
+extern int yyparse();
 
-int main(int argc, char** argv) {
+
+int main(int argc, char **argv) {
+    // Проверяем, был ли передан файл как аргумент
     if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <filename>" << endl;
+        printf("Использование: %s <файл>\n", argv[0]);
         return 1;
     }
 
-    ifstream inputFile(argv[1]);
-    if (!inputFile.is_open()) {
-        cerr << "Error: Could not open file " << argv[1] << endl;
+    // Открываем файл для лексического анализа
+    yyin = fopen(argv[1], "r");
+    if (!yyin) {
+        printf("Не удалось открыть файл: %s\n", argv[1]);
         return 1;
     }
 
-    yyFlexLexer lexer;
-    lexer.switch_streams(&inputFile, nullptr);
+    // Запускаем синтаксический анализ
+    yyparse();
 
-    while (lexer.yylex() != 0) {}
+    // Закрываем файл после завершения анализа
+    fclose(yyin);
 
     return 0;
 }

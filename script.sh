@@ -1,4 +1,5 @@
 #!/bin/bash
 
 flex++ lexer.l
-g++ lex.yy.cc main.cpp -o lexer
+bison -d parser.y
+g++ lex.yy.c parser.tab.c -o calc -lfl
