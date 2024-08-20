@@ -23,9 +23,11 @@ int result;
 
 %token <id> IDENTIFIER
 %token <num> NUMBER
-%token ASSIGN OPERATOR_PLUS OPERATOR_MINUS OPERATOR_MULTIPLY OPERATOR_DIVIDE
+%token OPERATOR_PLUS OPERATOR_MINUS OPERATOR_MULTIPLY OPERATOR_DIVIDE
 %token OPERATOR_MODULO OPERATOR_AND OPERATOR_OR OPERATOR_XOR
 %token OPERATOR_NOT OPERATOR_TILDE
+
+%token ASSIGN ASSIGNMENT_ADDITION ASSIGNMENT_SUBTRACTION ASSIGNMENT_MULTIPLICATION ASSIGNMENT_DIVISION ASSIGNMENT_REMAINDER ASSIGNMENT_BITWISE_AND ASSIGNMENT_BITWISE_OR ASSIGNMENT_BITWISE_XOR ASSIGNMENT_LSHIFT ASSIGNMENT_RSHIFT
 
 %type <num> statement expression term factor
 
@@ -40,6 +42,46 @@ statement:
     IDENTIFIER ASSIGN expression {
         symbol_table[$1] = $3;
         std::cout << "Variable " << $1 << " assigned value: " << $3 << std::endl;
+        free($1);
+    }
+    |
+    IDENTIFIER ASSIGNMENT_ADDITION expression {
+        if (symbol_table.find($1) != symbol_table.end()) {
+            symbol_table[$1] += $3;
+            std::cout << "Variable " << $1 << " incremented by: " << $3 << std::endl;
+        } else {
+            yyerror("Undeclared variable");
+        }
+        free($1);
+    }
+    |
+    IDENTIFIER ASSIGNMENT_SUBTRACTION expression {
+        if (symbol_table.find($1) != symbol_table.end()) {
+            symbol_table[$1] -= $3;
+            std::cout << "Variable " << $1 << " decremented by: " << $3 << std::endl;
+        } else {
+            yyerror("Undeclared variable");
+        }
+        free($1);
+    }
+    |
+    IDENTIFIER ASSIGNMENT_MULTIPLICATION expression {
+        if (symbol_table.find($1) != symbol_table.end()) {
+            symbol_table[$1] *= $3;
+            std::cout << "Variable " << $1 << " multiplied by: " << $3 << std::endl;
+        } else {
+            yyerror("Undeclared variable");
+        }
+        free($1);
+    }
+    |
+    IDENTIFIER ASSIGNMENT_DIVISION expression {
+        if (symbol_table.find($1) != symbol_table.end()) {
+            symbol_table[$1] /= $3;
+            std::cout << "Variable " << $1 << " divided by: " << $3 << std::endl;
+        } else {
+            yyerror("Undeclared variable");
+        }
         free($1);
     }
     |
@@ -106,7 +148,7 @@ int main(void) {
     run_test("~5;", -6);
 
     // Пример теста с переменной
-    yy_scan_string("x = 5 + 2 * 3; y = x - 4;");
+    yy_scan_string("x = 5 + 2 * 3; y = x - 4; x += 3;");
     yyparse();
 
     std::cout << "Final value of x: " << symbol_table["x"] << std::endl;

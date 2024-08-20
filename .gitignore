@@ -3,6 +3,7 @@ lex.yy.cc
 lex.yy.c
 parser.tab.c
 parser.tab.h
+lexer.c
 calc
 
 bin/*

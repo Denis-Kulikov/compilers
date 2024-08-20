@@ -1,3 +1,4 @@
+%option noyywrap
 %{
 #include "parser.tab.h"
 #include <ostream>
@@ -6,25 +7,39 @@
 // Переменные для хранения позиции
 int current_line = 1;
 int current_column = 1;
+
+#define PLS_CL current_line++; current_column = 1
+#define PLS_CC(X) current_column += X
 %}
 
 %%
 
-[0-9]+                  { yylval.num = atoi(yytext); current_column += yyleng; return NUMBER; }
-[ \t]+                  { current_column += yyleng; /* игнорируем пробелы и табуляции */ }
-[\n]                    { current_line++; current_column = 1; }
-"="                     { current_column += yyleng; return ASSIGN; }
-"+"                     { current_column += yyleng; return OPERATOR_PLUS; }
-"-"                     { current_column += yyleng; return OPERATOR_MINUS; }
-"*"                     { current_column += yyleng; return OPERATOR_MULTIPLY; }
-"/"                     { current_column += yyleng; return OPERATOR_DIVIDE; }
-"%"                     { current_column += yyleng; return OPERATOR_MODULO; }
-"&"                     { current_column += yyleng; return OPERATOR_AND; }
-"|"                     { current_column += yyleng; return OPERATOR_OR; }
-"^"                     { current_column += yyleng; return OPERATOR_XOR; }
-"!"                     { current_column += yyleng; return OPERATOR_NOT; }
-"~"                     { current_column += yyleng; return OPERATOR_TILDE; }
-";"                     { current_column += yyleng; return ';'; }
+[0-9]+                  { yylval.num = atoi(yytext); PLS_CC(yyleng); return NUMBER; }
+[ \t]+                  { PLS_CC(yyleng); /* игнорируем пробелы и табуляции */ }
+[\n]                    { PLS_CL; }
+"+"                     { PLS_CC(yyleng); return OPERATOR_PLUS; }
+"-"                     { PLS_CC(yyleng); return OPERATOR_MINUS; }
+"*"                     { PLS_CC(yyleng); return OPERATOR_MULTIPLY; }
+"/"                     { PLS_CC(yyleng); return OPERATOR_DIVIDE; }
+"%"                     { PLS_CC(yyleng); return OPERATOR_MODULO; }
+"&"                     { PLS_CC(yyleng); return OPERATOR_AND; }
+"|"                     { PLS_CC(yyleng); return OPERATOR_OR; }
+"^"                     { PLS_CC(yyleng); return OPERATOR_XOR; }
+"!"                     { PLS_CC(yyleng); return OPERATOR_NOT; }
+"~"                     { PLS_CC(yyleng); return OPERATOR_TILDE; }
+";"                     { PLS_CC(yyleng); return ';'; }
+
+"="                     { PLS_CC(yyleng); return ASSIGN; }
+"+="                    { PLS_CC(yyleng); return ASSIGNMENT_ADDITION; }
+"-="                    { PLS_CC(yyleng); return ASSIGNMENT_SUBTRACTION; }
+"*="                    { PLS_CC(yyleng); return ASSIGNMENT_MULTIPLICATION; }
+"/="                    { PLS_CC(yyleng); return ASSIGNMENT_DIVISION; }
+"%="                    { PLS_CC(yyleng); return ASSIGNMENT_REMAINDER; }
+"&="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_AND; }
+"|="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_OR; }
+"^="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_XOR; }
+"<<="                   { PLS_CC(yyleng); return ASSIGNMENT_LSHIFT; }
+">>="                   { PLS_CC(yyleng); return ASSIGNMENT_RSHIFT; }
 
 [_a-zA-Z][_a-zA-Z0-9]*  { yylval.id = strdup(yytext); current_column += yyleng; return IDENTIFIER; }
 
@@ -35,6 +50,3 @@ int current_column = 1;
 
 %%
 
-int yywrap(void) {
-    return 1;
-}
