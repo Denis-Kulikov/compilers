@@ -1,5 +1,5 @@
 #!/bin/bash
 
+bison -Wcounterexamples -d parser.y
 flex++ lexer.l
-bison -d parser.y
 g++ lex.yy.c parser.tab.c -o calc -lfl
