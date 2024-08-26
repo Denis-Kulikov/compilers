@@ -1,7 +1,7 @@
 %option noyywrap
 %{
 #include "parser.tab.h"
-#include <ostream>
+#include <iostream>
 #include <stdlib.h>
 
 // Переменные для хранения позиции
@@ -14,38 +14,21 @@ int current_column = 1;
 
 %%
 
-[0-9]+                  { yylval.num = atoi(yytext); PLS_CC(yyleng); return NUMBER; }
+[0-9]+                  { yylval.strval = strdup(yytext); PLS_CC(yyleng); return NUMBER; }
 [ \t]+                  { PLS_CC(yyleng); /* игнорируем пробелы и табуляции */ }
 [\n]                    { PLS_CL; }
-"+"                     { PLS_CC(yyleng); return OPERATOR_PLUS; }
-"-"                     { PLS_CC(yyleng); return OPERATOR_MINUS; }
-"*"                     { PLS_CC(yyleng); return OPERATOR_MULTIPLY; }
-"/"                     { PLS_CC(yyleng); return OPERATOR_DIVIDE; }
-"%"                     { PLS_CC(yyleng); return OPERATOR_MODULO; }
-"&"                     { PLS_CC(yyleng); return OPERATOR_AND; }
-"|"                     { PLS_CC(yyleng); return OPERATOR_OR; }
-"^"                     { PLS_CC(yyleng); return OPERATOR_XOR; }
-"!"                     { PLS_CC(yyleng); return OPERATOR_NOT; }
-"~"                     { PLS_CC(yyleng); return OPERATOR_TILDE; }
+"+"                     { PLS_CC(yyleng); return PLUS; }
+"-"                     { PLS_CC(yyleng); return MINUS; }
+"*"                     { PLS_CC(yyleng); return MULTIPLY; }
+"/"                     { PLS_CC(yyleng); return DIVIDE; }
 ";"                     { PLS_CC(yyleng); return ';'; }
-
 "="                     { PLS_CC(yyleng); return ASSIGN; }
-"+="                    { PLS_CC(yyleng); return ASSIGNMENT_ADDITION; }
-"-="                    { PLS_CC(yyleng); return ASSIGNMENT_SUBTRACTION; }
-"*="                    { PLS_CC(yyleng); return ASSIGNMENT_MULTIPLICATION; }
-"/="                    { PLS_CC(yyleng); return ASSIGNMENT_DIVISION; }
-"%="                    { PLS_CC(yyleng); return ASSIGNMENT_REMAINDER; }
-"&="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_AND; }
-"|="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_OR; }
-"^="                    { PLS_CC(yyleng); return ASSIGNMENT_BITWISE_XOR; }
-"<<="                   { PLS_CC(yyleng); return ASSIGNMENT_LSHIFT; }
-">>="                   { PLS_CC(yyleng); return ASSIGNMENT_RSHIFT; }
 
-[_a-zA-Z][_a-zA-Z0-9]*  { yylval.id = strdup(yytext); current_column += yyleng; return IDENTIFIER; }
+[_a-zA-Z][_a-zA-Z0-9]*  { yylval.strval = strdup(yytext); PLS_CC(yyleng); return IDENTIFIER; }
 
 .                       { 
-    fprintf(stderr, "Unexpected character '%s' at line %d, column %d\n", yytext, current_line, current_column);
-    current_column += yyleng;
+    std::cerr << "Unexpected character '" << yytext << "' at line " << current_line << ", column " << current_column << std::endl;
+    PLS_CC(yyleng);
 }
 
 %%

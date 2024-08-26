@@ -13,6 +13,7 @@ extern int current_line;
 extern int current_column;
 
 std::map<std::string, int> symbol_table;
+std::map<std::string, int> symbol_table;
 int result;
 %}
 
@@ -29,23 +30,23 @@ int result;
 
 %token ASSIGN ASSIGNMENT_ADDITION ASSIGNMENT_SUBTRACTION ASSIGNMENT_MULTIPLICATION ASSIGNMENT_DIVISION ASSIGNMENT_REMAINDER ASSIGNMENT_BITWISE_AND ASSIGNMENT_BITWISE_OR ASSIGNMENT_BITWISE_XOR ASSIGNMENT_LSHIFT ASSIGNMENT_RSHIFT
 
-%type <num> statement expression term factor
+%type <num> stmt expr term factor
 
 %%
 
 program:
-    program statement ';'   { /* пустое тело */ }
+    program stmt ';'   { /* пустое тело */ }
     |
     ;
 
-statement:
-    IDENTIFIER ASSIGN expression {
+stmt:
+    IDENTIFIER ASSIGN expr {
         symbol_table[$1] = $3;
         std::cout << "Variable " << $1 << " assigned value: " << $3 << std::endl;
         free($1);
     }
     |
-    IDENTIFIER ASSIGNMENT_ADDITION expression {
+    IDENTIFIER ASSIGNMENT_ADDITION expr {
         if (symbol_table.find($1) != symbol_table.end()) {
             symbol_table[$1] += $3;
             std::cout << "Variable " << $1 << " incremented by: " << $3 << std::endl;
@@ -55,7 +56,7 @@ statement:
         free($1);
     }
     |
-    IDENTIFIER ASSIGNMENT_SUBTRACTION expression {
+    IDENTIFIER ASSIGNMENT_SUBTRACTION expr {
         if (symbol_table.find($1) != symbol_table.end()) {
             symbol_table[$1] -= $3;
             std::cout << "Variable " << $1 << " decremented by: " << $3 << std::endl;
@@ -65,7 +66,7 @@ statement:
         free($1);
     }
     |
-    IDENTIFIER ASSIGNMENT_MULTIPLICATION expression {
+    IDENTIFIER ASSIGNMENT_MULTIPLICATION expr {
         if (symbol_table.find($1) != symbol_table.end()) {
             symbol_table[$1] *= $3;
             std::cout << "Variable " << $1 << " multiplied by: " << $3 << std::endl;
@@ -75,7 +76,7 @@ statement:
         free($1);
     }
     |
-    IDENTIFIER ASSIGNMENT_DIVISION expression {
+    IDENTIFIER ASSIGNMENT_DIVISION expr {
         if (symbol_table.find($1) != symbol_table.end()) {
             symbol_table[$1] /= $3;
             std::cout << "Variable " << $1 << " divided by: " << $3 << std::endl;
@@ -85,18 +86,18 @@ statement:
         free($1);
     }
     |
-    expression {
+    expr {
         result = $1;
     }
     ;
 
-expression:
-    expression OPERATOR_PLUS term         { $$ = $1 + $3; }
-  | expression OPERATOR_MINUS term        { $$ = $1 - $3; }
-  | expression OPERATOR_AND term          { $$ = $1 & $3; }
-  | expression OPERATOR_OR term           { $$ = $1 | $3; }
-  | expression OPERATOR_XOR term          { $$ = $1 ^ $3; }
-  | term                                  { $$ = $1; }
+expr:
+    expr OPERATOR_PLUS term         { $$ = $1 + $3; }
+  | expr OPERATOR_MINUS term        { $$ = $1 - $3; }
+  | expr OPERATOR_AND term          { $$ = $1 & $3; }
+  | expr OPERATOR_OR term           { $$ = $1 | $3; }
+  | expr OPERATOR_XOR term          { $$ = $1 ^ $3; }
+  | term                                 { $$ = $1; }
   ;
 
 term:
@@ -107,7 +108,9 @@ term:
   ;
 
 factor:
-    OPERATOR_NOT factor                   { $$ = !$2; }
+    "(" expr
+  | expr ")"
+  | OPERATOR_NOT factor                   { $$ = !$2; }
   | OPERATOR_TILDE factor                 { $$ = ~$2; }
   | NUMBER                                { $$ = $1; }
   | IDENTIFIER                            {
@@ -119,13 +122,123 @@ factor:
         }
         free($1);
     }
+    | "++" factor {}
+    | factor "++" {}
+    | "--" factor {}
+    | factor "--" {}
   ;
+
+
+
+
+
+enum_definition :
+    "enum" ID '{' const_vals '}';
+
+const_vals :
+    ID num_lit
+    | ID num_lit ',' const_vals;
+
+struct_definition :
+    "struct" ID '{' fields '}';
+
+fields :
+    field
+    | field fields;
+
+field :
+    type ID ';';
+
+class_definition :
+    "class" ID '{' class_body '}';
+
+class_body :
+    class_member
+    | class_member class_body;
+
+class_member :
+    access_specifier member;
+
+access_specifier :
+    "public:" | "private:" | "protected:";
+
+member :
+    field
+    | function_definition;
+
+function_definition :
+    type ID '(' parameter_list ')' '{' program_list '}';
+
+parameter_list :
+    | parameter
+    | parameter ',' parameter_list;
+
+parameter :
+    type ID;
+
+program_list :
+    program
+    | program program_list;
+
+program :
+    expression
+    | control_structure
+    | struct_definition
+    | class_definition
+    | enum_definition;
+
+expression :
+    function_call
+    | ID ASSIGN expression
+    | expression '+' expression
+    | expression '-' expression
+    | expression '*' expression
+    | expression '/' expression
+    | '(' expression ')'
+    | literal;
+
+optexpr :
+    expr
+    |
+    ;
+
+literal :
+    num_lit
+    | string_lit
+    | bool_lit;
+
+control_structure :
+    "if" '(' expression ')' '{' program_list '}'
+    | "while" '(' expression ')' '{' program_list '}'
+    | "for" '(' optexpr ';' optexpr ';' optexpr ')' '{' program_list '}';
+
+function_call :
+    ID '(' argument_list ')';
+
+argument_list :
+    | expression
+    | expression ',' argument_list;
+
 
 %%
 
 void yyerror(const char *s) {
-    std::cerr << "Error: " << s << " at line " << current_line << ", column " << current_column << std::endl;
 }
+
+void yyerror(char *s)
+{
+    std::cerr << "Error: " << s << " at line " << current_line << ", column " << current_column << std::endl;
+    // std::cerr << "Error: \"" << curr_filename << "\", line " << curr_lineno << ": " \ << s << " at or near ";
+    print_cool_token(yychar);
+    std::cerr << std::endl;
+    parse_errors++;
+
+    if (parse_errors > 50) {
+        std::fprintf(stdout, "More than 50 parse errors\n");
+        std::exit(1);
+    }
+}
+
 
 void run_test(const char* test, const int real)
 {
