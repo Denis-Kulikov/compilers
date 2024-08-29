@@ -1,12 +1,4 @@
 #include <iostream>
-#include "list.h"
-
-extern int node_lineno;
-const char *pad(int n);
-
-class Term_class;
-class Expression_class;
-
 
 class tree_node {
 public:
@@ -56,17 +48,3 @@ public:
 protected:
     int token;
 };
-
-class ast_node {
-protected:
-    int line_number;
-public:
-    ast_node() {};
-
-    List<Expression_class*> stmt;
-
-    // virtual ast_node *copy() = 0;
-    // virtual ~ast_node() { }
-    // virtual void dump(std::ostream &stream, int n) = 0;
-};
-

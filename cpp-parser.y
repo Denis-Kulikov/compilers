@@ -85,6 +85,8 @@ term:
 
 %%
 
+
+
 void yyerror(const char *s) {
     std::cerr << "Error: " << s << " at line " << current_line << ", column " << current_column << std::endl;
     std::exit(1);
@@ -95,6 +97,11 @@ int main(void) {
     std::cout << "\033[32m" << str << "\033[0m" << std::endl;
     yy_scan_string(str.c_str());
     yyparse();
+
+    std::ofstream out("tree.txt");
+    serialize(tree_root, out);
+    out.close();
+
 
     return 0;
 }

@@ -1,11 +1,9 @@
-#include "ast.hpp"
+#include "binary_tree.hpp"
+#include "list.hpp"
 
 typedef class Program_class *Program;
 typedef class Expression_class *Expression;
 typedef class Statement_class *Statement;
-
-
-
 
 
 class Elementary_type {

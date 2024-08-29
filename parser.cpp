@@ -1,5 +1,8 @@
 #include <iostream>
+#include <fstream>
 #include <cstring>
+#include <string>
+#include <memory>
 #include <stack>
 
 #include "cpp-tree.hpp"
@@ -9,12 +12,24 @@
 std::stack<tree_node*> stack_factor;
 std::stack<tree_node*> stack_perenthesis;
 
-tree_node *cur_expr = new tree_node;
+tree_node *tree_root = new tree_node;
+
+tree_node *cur_expr = tree_root;
 tree_node *cur_var = cur_expr;
 
 
 std::string print_token(const int token);
 void lift();
+
+void serialize(tree_node* node, std::ofstream& out) {
+    if (node == nullptr) {
+        out << "# ";
+        return;
+    }
+    out << print_token(node->get_token()) << " ";
+    serialize(node->left, out);
+    serialize(node->right, out);
+}
 
 void push_operator(const int op) {
     std::cout << "Calling push_operator with op: " << print_token(op) << std::endl; // Отладочное сообщение
@@ -97,10 +112,10 @@ std::string print_token(int token) {
     case tree_node::NUMBER:
         return std::string("number");
     case tree_node::IDENTIFIER:
-        return std::string("identifier");
+        return std::string("id");
     case tree_node::END:
         return std::string("end");
     default:
-        return std::string("unknown token");
+        return std::string("unknown_token");
     }
 }

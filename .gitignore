@@ -5,6 +5,7 @@ parser.tab.c
 parser.tab.h
 lexer.c
 calc
+tree.txt
 
 bin/*
 !bin/.keep
