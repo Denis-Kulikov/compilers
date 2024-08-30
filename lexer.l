@@ -21,8 +21,12 @@ int current_column = 1;
 "-"                     { PLS_CC(yyleng); return MINUS; }
 "*"                     { PLS_CC(yyleng); return MULTIPLY; }
 "/"                     { PLS_CC(yyleng); return DIVIDE; }
-";"                     { PLS_CC(yyleng); return ';'; }
 "="                     { PLS_CC(yyleng); return ASSIGN; }
+
+"("                     { PLS_CC(yyleng); return '('; }
+")"                     { PLS_CC(yyleng); return ')'; }
+
+";"                     { PLS_CC(yyleng); return ';'; }
 
 [_a-zA-Z][_a-zA-Z0-9]*  { yylval.strval = strdup(yytext); PLS_CC(yyleng); return IDENTIFIER; }
 

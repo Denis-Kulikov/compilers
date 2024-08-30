@@ -12,10 +12,20 @@
 std::stack<tree_node*> stack_factor;
 std::stack<tree_node*> stack_perenthesis;
 
-tree_node *tree_root = new tree_node;
+std::stack<tree_node*> stack_perenthesis_root;
 
-tree_node *cur_expr = tree_root;
-tree_node *cur_var = cur_expr;
+
+tree_node offset;
+
+tree_node tree_root;
+
+tree_node *cur_expr = &offset;
+tree_node *cur_var = &tree_root;
+
+void init()
+{
+    offset.right = &tree_root;
+}
 
 
 std::string print_token(const int token);
@@ -26,35 +36,55 @@ void serialize(tree_node* node, std::ofstream& out) {
         out << "# ";
         return;
     }
-    out << print_token(node->get_token()) << " ";
+    if (node->token == tree_node::IDENTIFIER) {
+        out << (reinterpret_cast<Term_class*>(node))->value << " ";
+    } else {
+        out << print_token(node->token) << " ";
+    }
     serialize(node->left, out);
     serialize(node->right, out);
+}
+
+void push_unary_operator(const int op) {
+    std::cout << "Calling push_unary_operator with op: " << print_token(op) << std::endl; // Отладочное сообщение
+    CHECK_NULLPTRL (cur_expr);
+
+    Expression_class *unary_operator = new Expression_class;
+
+    unary_operator->left = cur_expr->right->left;
+    cur_expr->right->left = unary_operator;
+
+    unary_operator->token = op;
 }
 
 void push_operator(const int op) {
     std::cout << "Calling push_operator with op: " << print_token(op) << std::endl; // Отладочное сообщение
     CHECK_NULLPTRL (cur_expr);
 
-    cur_expr->set_token(op);
-    cur_expr = cur_expr->right; // right должен создать cur_var
+    cur_expr->token = op;
+    // cur_expr = cur_expr->right; // right должен создать cur_var
 }
 
-void push_factor(Expression_class *e) {
-    CHECK_NULLPTRL (cur_expr);
-    stack_factor.push(cur_expr);
-    cur_expr->left = new Expression_class;
-    cur_expr = cur_expr->left;
-    cur_expr = e;
-}
+// void push_factor(Expression_class *e) {
+//     CHECK_NULLPTRL (cur_expr);
+//     stack_factor.push(cur_expr);
+//     cur_expr->left = new Expression_class;
+//     cur_expr = cur_expr->left;
+//     cur_expr = e;
+// }
 
 void push_term(Term_class *e) {
     CHECK_NULLPTRL (cur_var);
-    cur_var->left = e;
-    lift(); // нужен так, как cur_expr мог сместиться из-за factor
-    cur_var = cur_expr;
-    if (cur_var->right != nullptr) cur_var = cur_var->right; // обгон cur_expr
     cur_var->right = new Expression_class;
     cur_var = cur_var->right;
+    cur_var->left = e;
+
+    // lift(); // нужен так, как cur_expr мог сместиться из-за factor
+    // cur_var = cur_expr;
+    // if (cur_var->right != nullptr) cur_var = cur_var->right; // обгон cur_expr
+
+    // cur_var = cur_var->right;
+    cur_expr = cur_expr->right;
 }
 
 

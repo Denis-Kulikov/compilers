@@ -37,14 +37,8 @@ public:
         END
     };
 
+    int token = VOID;
 
     tree_node *left = nullptr;
     tree_node *right = nullptr;
-
-    void set_token(const int t) { token = t; }
-    int get_token() const       { return token; }
-
-
-protected:
-    int token;
 };
