@@ -1,43 +1,69 @@
 #include <iostream>
 
-class tree_node {
-public:
-    tree_node(int t) : token(t) {}
-    tree_node() {}
+namespace AST
+{
+    class Elementary_type;
 
     enum Basic_types {
+        VOID,
+
         BOOL,
         CHAR,
         INT,
         FLOAT,
         DOUBLE,
-        VOID,
+
         PTR,
         ARRAY,
+
+        FUNCTION,
+
         STRUCT,
         CLASS,
-        FUNCTION
 
-        // ENUM
-        // UNION
+        ENUM,
+        UNION
     };
 
     enum Tokens {
-        ASSIGN = FUNCTION + 1,
+        TYPE = UNION + 1,
 
+        IDENTIFIER,
+        NUMBER,
+        
+        ASSIGN,
         PLUS,
         MINUS,
-
         MULTIPLY,
         DIVIDE,
 
-        NUMBER,
-        IDENTIFIER,
+        BIT_AND,
+        BIT_OR,
+        BIT_XOR,
+        
+        SHL,
+        SHR,
+        EQ,
+        NEQ,
+        LT,
+        LE,
+        GT,
+        GE,
+        
+        AND,
+        OR,
 
         END
     };
+}
 
-    int token = VOID;
+
+class tree_node {
+public:
+    tree_node(int t) : token(t) {}
+    tree_node() {}
+
+    int token = AST::VOID;
 
     tree_node *left = nullptr;
     tree_node *right = nullptr;

@@ -4,7 +4,7 @@ lex.yy.c
 parser.tab.c
 parser.tab.h
 lexer.c
-calc
+parser
 tree.txt
 
 bin/*

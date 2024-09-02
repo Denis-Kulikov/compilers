@@ -8,29 +8,22 @@ typedef class Statement_class *Statement;
 
 class Elementary_type {
 public:
-
-    int type;
-    Elementary_type(int t) : type(t) {};
-    Elementary_type() {};
+    const int type;
+    Elementary_type(const int t) : type(t) {};
+    Elementary_type() : Elementary_type(AST::VOID) {};
 };
 
 class Pointer_type : public Elementary_type {
 public:
-    int target_type;
-    Pointer_type(int tt, int t) : Elementary_type(t), target_type(tt) {};
-    Pointer_type(int tt) : Elementary_type(tree_node::PTR), target_type(tt) {};
+    const int target_type;
+    Pointer_type(const int tt, const int t) : Elementary_type(t), target_type(tt) {};
+    Pointer_type(const int tt) : Elementary_type(AST::PTR), target_type(tt) {};
 };
 
 class Array_type : public Pointer_type {
 public:
     int lenght;
-    Array_type(int t, int l) : Pointer_type(t, tree_node::ARRAY), lenght(l) {};
-};
-
-class Struct_type : public Elementary_type {
-public:
-    List<Elementary_type*> fields;
-    Struct_type(List<Elementary_type*>& f) : Elementary_type(tree_node::STRUCT), fields(f.hd(), f.tl()) {};
+    Array_type(const int tt, int l) : Pointer_type(tt, AST::ARRAY), lenght(l) {};
 };
 
 class Function_type : public Elementary_type {
@@ -38,30 +31,52 @@ public:
     int result;
     List<Elementary_type*> args;
     // как-то нужно хранить код функици. список Program_class?
-    Function_type(int r, List<Elementary_type*>& a) : Elementary_type(tree_node::FUNCTION), result(r), args(a.hd(), a.tl()) {};
+    Function_type(int r, List<Elementary_type*>& a) : Elementary_type(AST::FUNCTION), result(r), args(a.hd(), a.tl()) {};
+};
+
+class Struct_type : public Elementary_type {
+public:
+    List<std::pair<std::string, Elementary_type*>> fields;
+    Struct_type(List<std::pair<std::string, Elementary_type*>>& f, const int t) : Elementary_type(t), fields(f.hd(), f.tl()) {};
+    Struct_type(List<std::pair<std::string, Elementary_type*>>& f) : Struct_type(f, AST::STRUCT) {};
 };
 
 class Class_type : public Elementary_type {
 public:
     List<Struct_type*> list_fields;
     List<Function_type*> methods;
-    Class_type (List<Struct_type*>& lf, List<Function_type*>& m) : list_fields(lf), methods(m), Elementary_type(tree_node::CLASS) {};
+    Class_type (List<Struct_type*>& lf, List<Function_type*>& m) : list_fields(lf), methods(m), Elementary_type(AST::CLASS) {};
+};
+
+class Enum_type : public Elementary_type {
+public:
+    List<Elementary_type*> list_types;
+    List<Function_type*> methods;
+    Enum_type (List<Elementary_type*>& lt, List<Function_type*>& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
+};
+
+
+class Union_type : public Elementary_type {
+public:
+    List<Elementary_type*> list_types;
+    List<Function_type*> methods;
+    Union_type (List<Elementary_type*>& lt, List<Function_type*>& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
 };
 
 
 class Expression_class : public tree_node {
 public:
-    Expression_class(int t) : tree_node(t) {};
-    Expression_class() : tree_node(VOID) {};
+    Expression_class(const int t) : tree_node(t) {};
+    Expression_class() : tree_node(AST::VOID) {};
 };
 
 class Term_class : public Expression_class {
 public:
-    Elementary_type *structure;
-    std::string value;
+    const Elementary_type *structure;
+    const std::string value;
 
-    Term_class(const std::string& v) : Expression_class(IDENTIFIER), value(v) {};
+    Term_class(const std::string& v, const Elementary_type *s, const int t) : Expression_class(t), structure(s), value(v) {  };
+    Term_class(const std::string& v, const Elementary_type *s) : Term_class(v, s, AST::IDENTIFIER) {};
+    Term_class(const std::string& v) : Term_class(v, nullptr) {};
 };
 
-//  virtual void dump() = 0;
-// std::unordered_map<std::string, std::unordered_map<Type, Expression *>> operations;
