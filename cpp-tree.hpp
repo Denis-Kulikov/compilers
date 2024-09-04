@@ -1,5 +1,4 @@
 #include "binary_tree.hpp"
-#include "list.hpp"
 
 typedef class Program_class *Program;
 typedef class Expression_class *Expression;
@@ -29,38 +28,38 @@ public:
 class Function_type : public Elementary_type {
 public:
     int result;
-    List<Elementary_type*> args;
+    std::list<Elementary_type*> args;
     // как-то нужно хранить код функици. список Program_class?
-    Function_type(int r, List<Elementary_type*>& a) : Elementary_type(AST::FUNCTION), result(r), args(a.hd(), a.tl()) {};
+    Function_type(int r, std::list<Elementary_type*>& a) : Elementary_type(AST::FUNCTION), result(r), args(a) {};
 };
 
 class Struct_type : public Elementary_type {
 public:
-    List<std::pair<std::string, Elementary_type*>> fields;
-    Struct_type(List<std::pair<std::string, Elementary_type*>>& f, const int t) : Elementary_type(t), fields(f.hd(), f.tl()) {};
-    Struct_type(List<std::pair<std::string, Elementary_type*>>& f) : Struct_type(f, AST::STRUCT) {};
+    std::list<std::pair<std::string, Elementary_type*>> fields;
+    Struct_type(std::list<std::pair<std::string, Elementary_type*>>& f, const int t) : Elementary_type(t), fields(f) {};
+    Struct_type(std::list<std::pair<std::string, Elementary_type*>>& f) : Struct_type(f, AST::STRUCT) {};
 };
 
 class Class_type : public Elementary_type {
 public:
-    List<Struct_type*> list_fields;
-    List<Function_type*> methods;
-    Class_type (List<Struct_type*>& lf, List<Function_type*>& m) : list_fields(lf), methods(m), Elementary_type(AST::CLASS) {};
+    std::list<Struct_type*> list_fields;
+    std::list<Function_type*> methods;
+    Class_type (std::list<Struct_type*>&& lf, std::list<Function_type*>&& m) : list_fields(lf), methods(m), Elementary_type(AST::CLASS) {};
 };
 
 class Enum_type : public Elementary_type {
 public:
-    List<Elementary_type*> list_types;
-    List<Function_type*> methods;
-    Enum_type (List<Elementary_type*>& lt, List<Function_type*>& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
+    std::list<Elementary_type*> list_types;
+    std::list<Function_type*> methods;
+    Enum_type (std::list<Elementary_type*>&& lt, std::list<Function_type*>&& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
 };
 
 
 class Union_type : public Elementary_type {
 public:
-    List<Elementary_type*> list_types;
-    List<Function_type*> methods;
-    Union_type (List<Elementary_type*>& lt, List<Function_type*>& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
+    std::list<Elementary_type*> list_types;
+    std::list<Function_type*> methods;
+    Union_type (std::list<Elementary_type*>&& lt, std::list<Function_type*>&& m) : list_types(lt), methods(m), Elementary_type(AST::UNION) {};
 };
 
 
@@ -76,7 +75,8 @@ public:
     const std::string value;
 
     Term_class(const std::string& v, const Elementary_type *s, const int t) : Expression_class(t), structure(s), value(v) {  };
-    Term_class(const std::string& v, const Elementary_type *s) : Term_class(v, s, AST::IDENTIFIER) {};
-    Term_class(const std::string& v) : Term_class(v, nullptr) {};
+    Term_class(const std::string& v, const int t) : Term_class(v, nullptr, t) {};
+    Term_class(const std::string& v) : Term_class(v, AST::IDENTIFIER) {};
 };
 
+class list_node : public std::list<tree_node*> {};

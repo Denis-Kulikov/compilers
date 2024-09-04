@@ -1,6 +1,5 @@
 %{
 #include "parser.hpp"
-
 void yyerror(const char *s);
 int yylex(void);
 void yy_scan_string(const char *str);
@@ -8,13 +7,16 @@ void yy_scan_string(const char *str);
 extern int current_line;
 extern int current_column;
 
+extern std::list<tree_node*> expr_stack;
+extern Term_class *tree_root;
+
+
 %}
 
 %union {
     char* strval;
-    class Expression_class* expr;
-    class Expression_class* factor;
-    class Term_class* term;
+    class tree_node *node;
+    class list_node *list;
 }
 
 %token <strval> IDENTIFIER NUMBER
@@ -30,9 +32,14 @@ extern int current_column;
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 %nonassoc UMINUS
-%type <expr> expr
-%type <term> term
-%type <expr> program
+%type <node> term prefix_term factor lvalue lexpr expr
+%type <node> program
+%type <node> declaration declaration_list function_definition function_declaration variable_declaration type_declaration
+%type <node> parameter_list parameter fun_call arg_list
+%type <strval> function_header
+%type <list> identifier_list_with_definition identifier_list_without_definition identifier_list
+%type <node> optexpr;
+
 
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
@@ -40,107 +47,85 @@ extern int current_column;
 %%
 
 program:
-    stmt_list { std::cout << "__  __  __" << std::endl; }
+    declaration_list {}
     ;
 
-typedef:
-    TYPEDEF IDENTIFIER IDENTIFIER
-
-def:
-    IDENTIFIER def_list { if (!find_type($1)) std::cout << "\033[31m" << "Wrong type: " << $1 << "\033[0m" << std::endl; }
-    | STRUCT IDENTIFIER def_list { if (!find_type($2)) std::cout << "\033[31m" << "Wrong type: " << $2 << "\033[0m" << std::endl; }
-    | struct def_list { }
-    | fun_root
-    ;
-
-def_list:
-    declaration
-    | definition
-    | declaration ',' def_list
-    | definition ',' def_list
-    ;
-
-definition:
-    declaration ASSIGN expr {}
-    | declaration ternary {}
+declaration_list:
+    declaration {}
+    | declaration_list declaration {}
     ;
 
 declaration:
-    IDENTIFIER {}
+    function_definition { pad(); std::cout << std::endl; }
+    | function_declaration { pad(); std::cout << std::endl; }
+    | variable_declaration ';' { pad(); std::cout << std::endl; }
+    | type_declaration ';' { pad(); std::cout << std::endl; }
     ;
 
-fun:
-    fun_root '{' stmt_list '}'
-    | fun_root '{' '}'
+
+// <== function ==>
+function_declaration:
+    function_header ';' { pad(); std::cout << "function declaration: \033[33m" << $1 << "\033[0m" << std::endl;  }
     ;
 
-fun_root:
-    IDENTIFIER IDENTIFIER '(' parameter_list ')' { if (!find_type($1)) std::cout << "\033[31m" << "Wrong type: " << $1 << "\033[0m" << std::endl; }
+function_definition:
+    function_header compound_stmt { pad(); std::cout << "function: \033[33m" << $1 << "\033[0m" << std::endl;  }
+    ;
+
+function_header:
+    type IDENTIFIER '(' parameter_list ')' { $$ = $2; }
     ;
 
 parameter_list:
-    /* empty */
-    | parameter
-    | parameter ',' parameter_list
+    /* empty */ {}
+    | parameter_list_with_type {}
+    ;
+
+parameter_list_with_type:
+    parameter {}
+    | parameter ',' parameter_list_with_type {}
     ;
 
 parameter:
-    IDENTIFIER IDENTIFIER { if (!find_type($1)) std::cout << "\033[31m" << "Wrong type: " << $1 << "\033[0m" << std::endl; }
+    type IDENTIFIER { pad(); std::cout << "parameter: " << $2 << "" << std::endl; }
     ;
 
 fun_call:
-    IDENTIFIER '(' arg_list ')' { /* код для вызова функции */ }
+    IDENTIFIER '(' arg_list ')' { pad(); std::cout << "function: " << $1 << "" << std::endl; }
     ;
 
 arg_list:
-    /* empty */
-    | expr
-    | expr ',' arg_list
+    /* empty */ {}
+    | expr { pad(); std::cout << "arg: " << "" << std::endl; }
+    | expr ',' arg_list { pad(); std::cout << "arg: " << "" << std::endl; }
     ;
 
-enum:
-    ENUM '{' enum_field_list '}'
-    | ENUM IDENTIFIER '{' enum_field_list '}'
+// <== constructions ==>
+constructions:
+    selection_stmt
+    | iteration_stmt
+    | jump_stmt
     ;
 
-enum_field_list:
-    enum_field 
-    | enum_field ',' enum_field_list
+selection_stmt:
+    IF '(' expr ')' stmt %prec LOWER_THAN_ELSE
+    | IF '(' expr ')' stmt ELSE stmt
+    | SWITCH '(' expr ')' '{' case_list_with_empty '}'      { pad(); std::cout << "switch" << std::endl; }
     ;
 
-enum_field:
-    IDENTIFIER
+iteration_stmt:
+    WHILE '(' expr ')' stmt
+    | DO stmt WHILE '(' expr ')' ';'
+    | FOR '(' optexpr ';' optexpr ';' optexpr ')' stmt
     ;
 
-union:
-    UNION '{' union_field_list '}'
-    | UNION IDENTIFIER '{' union_field_list '}'
+jump_stmt:
+    BREAK ';'
+    | CONTINUE ';'
+    | goto ';'          { pad(); std::cout << "goto" << std::endl;; }
+    | goto_point        { pad(); std::cout << "goto_point" << std::endl;; }
+    | RETURN expr ';'
     ;
-
-union_field_list:
-    union_field 
-    | union_field union_field_list
-    ;
-
-union_field:
-    IDENTIFIER declaration ';'
-    ;
-
-struct:
-    STRUCT '{' struct_field_list '}' // нужно запушить тип, чтобы иметь возможность сразу создать экземпляры struct {...} s;
-    | STRUCT IDENTIFIER '{' struct_field_list '}'
-    ;
-    
-struct_field_list:
-    struct_field 
-    | struct_field struct_field_list
-    ;
-
-struct_field:
-    IDENTIFIER declaration ';'
-    | IDENTIFIER definition ';'
-    ;
-
 
 case_list_with_empty:
     /* empty */
@@ -153,18 +138,13 @@ case_list:
     ;
 
 case:
-    CASE expr ':' case_stmt_list    { std::cout << "case ';'\n" << std::endl; }
-    | DEFAULT ':' case_stmt_list    { std::cout << "default ';'\n" << std::endl; }
+    CASE expr ':' case_stmt_list    { pad(); std::cout << "case" << std::endl; }
+    | DEFAULT ':' case_stmt_list    { pad(); std::cout << "default" << std::endl; }
     ;
 
 case_stmt_list:
     /* empty */
     | stmt case_stmt_list
-
-
-if_stmt:
-    IF '(' expr ')' stmt %prec LOWER_THAN_ELSE
-    | IF '(' expr ')' stmt ELSE stmt
     ;
 
 goto:
@@ -176,9 +156,146 @@ goto_point:
     ;
 
 
+// <== variable ==>
+variable_declaration:
+    type identifier_list 
+    {
+        pad(); std::cout << "\033[31m";
+        if ($2->empty()) std::cout << "Empty\033[0m" << std::endl;
+        for (const auto &it : *$2) {
+            std::cout << (reinterpret_cast<Term_class*>(it))->value << ' ';
+            tree_root = reinterpret_cast<Term_class*>(it);
+        } 
+        std::cout << "\033[0m" << std::endl;
+    }
+    ;
 
-ternary:
-    ASSIGN expr '?' expr ':' expr
+// <== type ==>
+type_declaration:
+    typedef { pad(); std::cout << "typedef" << std::endl; }
+    | grouping_type {}
+    ;
+
+typedef:
+    TYPEDEF type IDENTIFIER ';' { pad(); std::cout << "typedef: " << $3 << std::endl; }
+    ;
+
+grouping_type:
+    struct      { pad(); std::cout << "\033[34mstruct\033[0m" << std::endl; }
+    | union     { pad(); std::cout << "\033[34munion\033[0m" << std::endl; }
+    | enum      { pad(); std::cout << "\033[34menum\033[0m" << std::endl; }
+    ;
+
+struct:
+    STRUCT '{' struct_field_list '}' // нужно запушить тип, чтобы иметь возможность сразу создать экземпляры struct {...} s;
+    | STRUCT identifier_list_without_definition '{' struct_field_list '}'
+    ;
+    
+struct_field_list:
+    struct_field 
+    | struct_field struct_field_list
+    ;
+
+struct_field:
+    type identifier_list_without_definition ';'
+    ;
+
+union:
+    UNION '{' union_field_list '}'
+    | UNION identifier_list_without_definition '{' union_field_list '}'
+    ;
+
+union_field_list:
+    union_field 
+    | union_field union_field_list
+    ;
+
+union_field:
+    type IDENTIFIER ';' { pad(); std::cout << "union field: " << $2 << std::endl; }
+    ;
+
+
+enum:
+    ENUM '{' enum_field_list '}'
+    | ENUM identifier_list_without_definition '{' enum_field_list '}' 
+    ;
+
+enum_field_list:
+    enum_field 
+    | enum_field ',' enum_field_list
+    ;
+
+enum_field:
+    IDENTIFIER                  { pad(); std::cout << "enum field: " << $1 << std::endl; }
+    | IDENTIFIER ASSIGN expr    { pad(); std::cout << "enum field: " << $1 << std::endl; }
+    ;
+
+
+identifier_list:
+    identifier_list_with_definition { $$ = $1; }
+    | identifier_list_without_definition { $$ = $1; }
+    ;
+
+
+identifier_list_with_definition:
+    IDENTIFIER ASSIGN expr
+    {
+        pad(); std::cout << "definition: \033[35m" << $1 << "\033[0m" << std::endl; 
+        auto *tree = new list_node;
+        auto *identifier = new Expression_class(AST::ASSIGN);
+        identifier->left = new Term_class($1);
+        identifier->right = $3;
+        tree->push_back(identifier);
+        $$ = tree;
+    }
+    | identifier_list_with_definition ',' IDENTIFIER ASSIGN expr
+    {
+        pad(); std::cout << "definition: \033[35m" << $3 << "\033[0m" << std::endl; 
+        auto *identifier = new Expression_class(AST::ASSIGN);
+        identifier->left = new Term_class($3);
+        identifier->right = $5;
+        $$->push_back(identifier);
+    }
+    ;
+
+identifier_list_without_definition:
+    IDENTIFIER
+    {
+        pad(); std::cout << "declaration: \033[35m" << $1 << "\033[0m" << std::endl;
+        auto *tree = new list_node;
+        auto *identifier = new Term_class($1);
+        tree->push_back(identifier);
+        $$ = tree;
+    }
+    | identifier_list_without_definition ',' IDENTIFIER
+    {
+        pad(); std::cout << "declaration: \033[35m" << $3 << "\033[0m" << std::endl;
+        auto *identifier = new Term_class($3);
+        $$->push_back(identifier);
+    }
+    ;
+
+
+type:
+    IDENTIFIER { pad(); std::cout << "type: " << $1 << std::endl; }
+    | struct
+    | union
+    | enum
+    | STRUCT IDENTIFIER
+    | UNION IDENTIFIER
+    | ENUM IDENTIFIER
+    ;
+
+// <== operations ==>
+
+// ternary:
+//     expr '?' expr ':' expr
+//     ;
+
+compound_stmt:
+    '{' stmt_list '}'
+    | '{' '}'
+    ;
 
 stmt_list:
     stmt
@@ -186,72 +303,81 @@ stmt_list:
     ;
 
 stmt:
-    // expressions
     ';'
-    | '{' stmt_list '}' { std::cout << "block ';'\n" << std::endl; }
-    | expr ';'          { std::cout << "expr ';'\n" << std::endl; } // end_expr(); 
-    // variables
-    | def ';'           { std::cout << "def ';'\n" << std::endl; }
-    | fun               { std::cout << "fun ';'\n" << std::endl; }
-    | enum ';'          { std::cout << "enum ';'\n" << std::endl; }
-    | union ';'         { std::cout << "union ';'\n" << std::endl; }
-    | struct ';'        { std::cout << "struct ';'\n" << std::endl; }
-    | typedef ';'       { std::cout << "typedef ';'\n" << std::endl; }
-    // constructions
-    | if_stmt {}
-    // | IF '(' expr ')' stmt ELSE stmt                        { std::cout << "if-else" << std::endl; }
-    // | FOR '(' optexpr ';' optexpr ';' optexpr ')' stmt      { std::cout << "for" << std::endl; }
-    | WHILE '(' expr ')' stmt                               { std::cout << "while" << std::endl; }
-    | DO stmt WHILE '(' expr ')' ';'
-    | SWITCH '(' expr ')' '{' case_list_with_empty '}'      { std::cout << "switch" << std::endl; }
-    | BREAK ';'        { std::cout << "break\n"; }
-    | CONTINUE ';'     { std::cout << "continue\n"; }
-    | goto ';'          { std::cout << "goto\n"; }
-    | goto_point        { std::cout << "goto_point\n"; }
-    | RETURN expr ';' { std::cout << "return\n"; }
+    | compound_stmt { pad(); std::cout << "block" << std::endl; }
+    | expr ';'          { pad(); std::cout << "expr" << std::endl; } // end_expr(); 
+    | variable_declaration ';'
+    | constructions
     ;
 
-expr_list:
-    expr
-    | expr expr_list
+
+optexpr:
+    /* empty */ { $$ = nullptr; }
+    | expr { $$ = $1; }
+    | variable_declaration { $$ = $1; }
     ;
 
 expr:
-    expr ASSIGN term        { std::cout << "assing\n" << std::endl; }
-    | expr PLUS term        { push_operator(AST::PLUS); }
-    | expr MINUS term       { push_operator(AST::MINUS); }
-    | expr MULTIPLY term    { push_operator(AST::MULTIPLY); }
-    | expr DIVIDE term      { push_operator(AST::DIVIDE); }
-    | expr BIT_AND term     { push_operator(AST::BIT_AND); }
-    | expr BIT_OR term      { push_operator(AST::BIT_OR); }
-    | expr BIT_XOR term     { push_operator(AST::BIT_XOR); }
-    | expr SHL term         { push_operator(AST::SHL); }
-    | expr SHR term         { push_operator(AST::SHR); }
-    | expr EQ term          { push_operator(AST::EQ); }
-    | expr NEQ term         { push_operator(AST::NEQ); }
-    | expr LT term          { push_operator(AST::LT); }
-    | expr LE term          { push_operator(AST::LE); }
-    | expr GT term          { push_operator(AST::GT); }
-    | expr GE term          { push_operator(AST::GE); }
-    | expr AND term         { push_operator(AST::AND); }
-    | expr OR term          { push_operator(AST::OR); }
-    | term {}
+    lexpr                    { $$ = $1;  } 
+    | lvalue ASSIGN expr     { auto node = new Expression_class(AST::ASSIGN);      node->left = $1; node->right = $3; $$ = node; }
+    | lexpr PLUS expr        { auto node = new Expression_class(AST::PLUS);        node->left = $1; node->right = $3; $$ = node; }
+    | lexpr MINUS expr       { auto node = new Expression_class(AST::MINUS);       node->left = $1; node->right = $3; $$ = node; }
+    | lexpr MULTIPLY expr    { auto node = new Expression_class(AST::MULTIPLY);    node->left = $1; node->right = $3; $$ = node; }
+    | lexpr DIVIDE expr      { auto node = new Expression_class(AST::DIVIDE);      node->left = $1; node->right = $3; $$ = node; }
+    | lexpr BIT_AND expr     { auto node = new Expression_class(AST::BIT_AND);     node->left = $1; node->right = $3; $$ = node; }
+    | lexpr BIT_OR expr      { auto node = new Expression_class(AST::BIT_OR);      node->left = $1; node->right = $3; $$ = node; }
+    | lexpr BIT_XOR expr     { auto node = new Expression_class(AST::BIT_XOR);     node->left = $1; node->right = $3; $$ = node; }
+    | lexpr SHL expr         { auto node = new Expression_class(AST::SHL);         node->left = $1; node->right = $3; $$ = node; }
+    | lexpr SHR expr         { auto node = new Expression_class(AST::SHR);         node->left = $1; node->right = $3; $$ = node; }
+    | lexpr EQ expr          { auto node = new Expression_class(AST::EQ);          node->left = $1; node->right = $3; $$ = node; }
+    | lexpr NEQ expr         { auto node = new Expression_class(AST::NEQ);         node->left = $1; node->right = $3; $$ = node; }
+    | lexpr LT expr          { auto node = new Expression_class(AST::LT);          node->left = $1; node->right = $3; $$ = node; }
+    | lexpr LE expr          { auto node = new Expression_class(AST::LE);          node->left = $1; node->right = $3; $$ = node; }
+    | lexpr GT expr          { auto node = new Expression_class(AST::GT);          node->left = $1; node->right = $3; $$ = node; }
+    | lexpr GE expr          { auto node = new Expression_class(AST::GE);          node->left = $1; node->right = $3; $$ = node; }
+    | lexpr AND expr         { auto node = new Expression_class(AST::AND);         node->left = $1; node->right = $3; $$ = node; }
+    | lexpr OR expr          { auto node = new Expression_class(AST::OR);          node->left = $1; node->right = $3; $$ = node; }
     ;
 
+lexpr:
+    lvalue { $$ = $1; }
+    | factor { $$ = $1; }
+    ;
+
+lvalue:
+    term { $$ = $1; }
+    | prefix_term { $$ = $1; }
+    ;
+
+factor:
+    MINUS term { auto node = new Expression_class(AST::MINUS); node->left = $2; $$ = node; }
+    | term INC { /* Нужно создание новой переменной */ }
+    | term DEC { /* Нужно создание новой переменной */ }
+    ;
+
+
+prefix_term:
+    INC term   { if (false /* если нет в таблице символов */) return 0;
+                 auto node = new Expression_class(AST::ASSIGN); node->left = $2; node->right = new Expression_class(AST::PLUS); 
+                 node->right->left = $2; node->right->right = new Term_class("1", AST::NUMBER); $$ = node; }
+    | DEC term { if (false /* если нет в таблице символов */) return 0;
+                 auto node = new Expression_class(AST::ASSIGN); node->left = $2; node->right = new Expression_class(AST::MINUS); 
+                 node->right->left = $2; node->right->right = new Term_class("1", AST::NUMBER); $$ = node;  }
+    ;
+
+
 term:
-    NUMBER {}
-    | IDENTIFIER { }
-    | MINUS term { push_unary_operator(AST::MINUS);}
-    | INC term { /* код для инкремента */ }
-    | DEC term { /* код для декремента */ }
-    | '(' expr ')' {}
-    | fun_call {}
+    NUMBER { /* push_term(yylval.strval, AST::NUMBER); */ pad(); std::cout << $1 << std::endl; $$ = new Term_class($1, AST::NUMBER); }
+    | IDENTIFIER { /* push_term(yylval.strval, AST::NUMBER);*/ pad(); std::cout << "term" << std::endl; $$ = new Term_class($1); /* нужно создать таблицу символов*/}
+    | fun_call { }
+    | '(' expr ')' { $$ = $2; }
     ;
 
 %%
 
 void yyerror(const char *s) {
     std::cerr << "Error: " << s << " at line " << current_line << ", column " << current_column << std::endl;
+    // std::cerr << "Last token: " << yytext  << std::endl;
     std::exit(1);
 }
 
@@ -268,7 +394,7 @@ void analysis(const std::string& filename) {
     buffer << file.rdbuf();
     std::string str = buffer.str();
 
-    std::cout << "\033[32m" << str << "\033[0m" << std::endl;
+    pad(); std::cout << "\033[32m" << str << "\033[0m" << std::endl;
 
     yy_scan_string(str.c_str());
     yyparse();

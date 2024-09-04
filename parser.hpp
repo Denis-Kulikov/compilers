@@ -1,12 +1,7 @@
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <sstream>
-#include <stack>
-#include <unordered_map>
+
 #include "cpp-tree.hpp"
+
+typedef int my_type;
 
 typedef struct {
     Elementary_type Bool    = AST::BOOL;
@@ -64,13 +59,17 @@ void parenthesis_open();
 
 void push_unary_operator(const int op);
 void push_operator(const int op);
-void push_term(Term_class *e);
+void push_term(char *value, int t);
 
 
 // void lift(); // когда записал Term_class
 // void lift_perenthesis(); // когда встретился ')'
 
 std::string print_token(int token);
+
+void add_pad();
+void remove_pad();
+void pad();
 
 
 void analysis(const std::string& filename);

@@ -1,4 +1,13 @@
+#include <cstring>
+#include <fstream>
 #include <iostream>
+#include <list>
+#include <memory>
+#include <string>
+#include <sstream>
+#include <stack>
+#include <utility>
+#include <unordered_map>
 
 namespace AST
 {
@@ -36,6 +45,12 @@ namespace AST
         MINUS,
         MULTIPLY,
         DIVIDE,
+
+        PRE_INC,
+        PRE_DEC,
+
+        INC_POST,
+        DEC_POST,
 
         BIT_AND,
         BIT_OR,

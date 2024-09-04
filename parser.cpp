@@ -11,7 +11,7 @@
 // "double"                { types.push(tables.symbols["double"]); }
 
 int test = 0;
-
+int tab = 0;
 int result;
 
 std::stack<tree_node*> stack_perenthesis;
@@ -21,33 +21,19 @@ Tables tables(elementary_types);
 Stacks stacks;
 Flags flags;
 tree_node offset;
-tree_node tree_root;
+Term_class *tree_root;
 
-tree_node *cur_expr = &offset;
-tree_node *cur_var = &tree_root;
+// tree_node *cur_expr = &offset;
+// tree_node *cur_var = &tree_root;
+
+std::stack<tree_node*> expr_stack;
 
 void init()
 {
-    offset.right = &tree_root;
 }
 
 
 std::string print_token(const int token);
-void lift();
-
-void serialize(tree_node* node, std::ofstream& out) {
-    if (node == nullptr) {
-        out << "# ";
-        return;
-    }
-    if (node->token == AST::IDENTIFIER) {
-        out << (reinterpret_cast<Term_class*>(node))->value << " ";
-    } else {
-        out << print_token(node->token) << " ";
-    }
-    serialize(node->left, out);
-    serialize(node->right, out);
-}
 
 bool find_type(char *name)
 {
@@ -57,7 +43,7 @@ bool find_type(char *name)
 
 typedef struct
 {
-    /* data */
+    /* data */ 
 } xxx;
 
 
@@ -69,10 +55,12 @@ void end_expr() {
 
 void push_type(const std::string &s) {
     stacks.types.push(tables.symbols[s]);
+
+
 }
 
 void parenthesis_close() {
-    std::cout << "Close '()'" << std::endl;
+    pad(); std::cout << "Close '()'" << std::endl;
 
     // tree_node *trash = cur_expr->right; // мусорный узел
     // cur_expr->right = cur_expr->right->left; // замена на переменную
@@ -88,7 +76,7 @@ void parenthesis_close() {
 }
 
 void parenthesis_open() {
-    std::cout << "Open '()'" << std::endl;
+    pad(); std::cout << "Open '()'" << std::endl;
 
     // cur_expr продвигается и создаётся term
     // cur_expr = cur_expr->right;
@@ -106,7 +94,7 @@ void parenthesis_open() {
 }
 
 void push_unary_operator(const int op) {
-    std::cout << "unary_operator: " << print_token(op) << std::endl; // Отладочное сообщение
+    pad(); std::cout << "unary_operator: " << print_token(op) << std::endl; // Отладочное сообщение
     // CHECK_NULLPTRL (cur_expr);
 
     // Expression_class *unary_operator = new Expression_class;
@@ -118,32 +106,37 @@ void push_unary_operator(const int op) {
 }
 
 void push_operator(const int op) {
-    std::cout << "operator: " << print_token(op) << std::endl; // Отладочное сообщение
+    pad(); std::cout << "operator: " << print_token(op) << std::endl; // Отладочное сообщение
     // CHECK_NULLPTRL (cur_expr);
 
     // cur_expr->token = op;
     // // cur_expr = cur_expr->right; // right должен создать cur_var
 }
 
-void push_term(Term_class *e) {
-    std::cout << "term: " << e->value << std::endl;
+void push_term(char *value, int t) {
+    Term_class *term = new Term_class(value, nullptr, t);
+    pad(); std::cout << "term: " << term->token << std::endl;
     // CHECK_NULLPTRL (cur_var);
     // cur_var->right = new Expression_class;
     // cur_var = cur_var->right;
-    // cur_var->left = e;
+    // cur_var->left = term;
 
     // cur_expr = cur_expr->right;
 }
 
 
-void lift_perenthesis() // когда встретился ')'
-{
-    if (!stack_perenthesis.empty()) {
-        cur_expr = stack_perenthesis.top();
-        stack_perenthesis.pop();
-    }
+void add_pad() {
+    const int MAX_PAD = 20;
+    tab = (tab + 1) % MAX_PAD;
 }
 
+void remove_pad() {
+    tab = tab < 1 ? 0 : tab - 1;
+}
+
+void pad() {
+    for (int i = 0 ; i < tab; i++) std::cout << "  ";
+}
 
 std::string print_token(int token) {
     switch (token) {
@@ -179,6 +172,14 @@ std::string print_token(int token) {
         return std::string("multiply");
     case AST::DIVIDE:
         return std::string("divide");
+    case AST::PRE_INC:
+        return std::string("pre_inc");
+    case AST::PRE_DEC:
+        return std::string("pre_dec");
+    case AST::INC_POST:
+        return std::string("inc_post");
+    case AST::DEC_POST:
+        return std::string("dec_post");
     case AST::NUMBER:
         return std::string("number");
     case AST::IDENTIFIER:
@@ -186,22 +187,35 @@ std::string print_token(int token) {
     case AST::END:
         return std::string("end");
     default:
-        return std::string("unknown_token");
+        return std::string("wrng_tkn_" + std::to_string(token));
     }
 }
 
+void serialize(tree_node* node, std::ofstream& out) {
+    if (node == nullptr) {
+        out << "# ";
+        return;
+    }
+    if (node->token == AST::IDENTIFIER || node->token == AST::NUMBER) {
+        out << (reinterpret_cast<Term_class*>(node))->value << " ";
+    } else {
+        out << print_token(node->token) << " ";
+    }
+    serialize(node->left, out);
+    serialize(node->right, out);
+}
 
 int main(void) {
     try {
         analysis("test-file.c");
     } catch(void *e) {
         std::ofstream out("tree.txt");
-        serialize(tree_root.right, out);
+        serialize(tree_root, out);
         out.close();
     }
 
     std::ofstream out("tree.txt");
-    serialize(tree_root.right, out);
+    serialize(tree_root, out);
     out.close();
 
     return 0;
