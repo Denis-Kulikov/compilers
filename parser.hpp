@@ -18,16 +18,15 @@ typedef struct {
 } Elementary_types;
 
 typedef struct Tables__ {
-    std::unordered_map<std::string, Term_class*> symbols;
-    std::unordered_map<std::string, Term_class*> types;
+    std::unordered_map<std::string, node*> symbols;
 
     Tables__ (const Elementary_types &elementary_types) {
-        types["void"] = new Term_class("void", &elementary_types.Int, AST::VOID);
-        types["bool"] = new Term_class("bool", &elementary_types.Int, AST::BOOL);
-        types["char"] = new Term_class("char", &elementary_types.Int, AST::CHAR);
-        types["int"] = new Term_class("int", &elementary_types.Int, AST::INT);
-        types["float"] = new Term_class("float", &elementary_types.Int, AST::FLOAT);
-        types["double"] = new Term_class("double", &elementary_types.Int, AST::DOUBLE);
+        symbols["void"]->Elementary = new Elementary_type(AST::VOID);
+        symbols["bool"]->Elementary = new Elementary_type(AST::BOOL);
+        symbols["char"]->Elementary = new Elementary_type(AST::CHAR);
+        symbols["int"]->Elementary = new Elementary_type(AST::INT);
+        symbols["float"]->Elementary = new Elementary_type(AST::FLOAT);
+        symbols["double"]->Elementary = new Elementary_type(AST::DOUBLE);
     };
 } Tables;
 
@@ -49,9 +48,9 @@ void init();
 
 void serialize(tree_node* node, std::ofstream& out);
 
-bool find_type(char *name);
+node *find_type(char *name);
 void end_expr();
-void push_type(const std::string &s);
+bool push_type(const std::string &name, node *type);
 
 void parenthesis_close();
 void parenthesis_open();

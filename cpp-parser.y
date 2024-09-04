@@ -15,8 +15,10 @@ extern Term_class *tree_root;
 
 %union {
     char* strval;
-    class tree_node *node;
+    unsigned int type_index;
+    union node *nodes;
     class list_node *list;
+    class field *fields;
 }
 
 %token <strval> IDENTIFIER NUMBER
@@ -27,18 +29,20 @@ extern Term_class *tree_root;
 %token BREAK CONTINUE GOTO RETURN
 %token CASE DEFAULT
 %token CONST UNSIGNED LONG SHORT STATIC INLINE EXTERN
-%token STRUCT UNION ENUM
+%token<type_index> STRUCT UNION ENUM
 %token TYPEDEF
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 %nonassoc UMINUS
-%type <node> term prefix_term factor lvalue lexpr expr
-%type <node> program
-%type <node> declaration declaration_list function_definition function_declaration variable_declaration type_declaration
-%type <node> parameter_list parameter fun_call arg_list
+%type <nodes> term prefix_term factor lvalue lexpr expr
+%type <nodes> program
+%type <nodes> declaration declaration_list function_definition function_declaration variable_declaration type_declaration
+%type <nodes> parameter_list parameter fun_call arg_list
 %type <strval> function_header
 %type <list> identifier_list_with_definition identifier_list_without_definition identifier_list
-%type <node> optexpr;
+%type <nodes> optexpr;
+%type <fields> struct_field union_field enum_field
+%type <nodes> type;
 
 
 %nonassoc LOWER_THAN_ELSE
@@ -163,7 +167,8 @@ variable_declaration:
         pad(); std::cout << "\033[31m";
         if ($2->empty()) std::cout << "Empty\033[0m" << std::endl;
         for (const auto &it : *$2) {
-            std::cout << (reinterpret_cast<Term_class*>(it))->value << ' ';
+            if (it->ast_node)
+            // std::cout << it-> ->value << ' ';
             tree_root = reinterpret_cast<Term_class*>(it);
         } 
         std::cout << "\033[0m" << std::endl;
@@ -177,7 +182,7 @@ type_declaration:
     ;
 
 typedef:
-    TYPEDEF type IDENTIFIER ';' { pad(); std::cout << "typedef: " << $3 << std::endl; }
+    TYPEDEF type IDENTIFIER ';' { if (push_type($3, $2)) { pad(); std::cout << "\033[34msErrorL: typedef\033[0m" << std::endl; } }
     ;
 
 grouping_type:
@@ -197,7 +202,7 @@ struct_field_list:
     ;
 
 struct_field:
-    type identifier_list_without_definition ';'
+    type identifier_list_without_definition ';' {}
     ;
 
 union:
@@ -211,7 +216,10 @@ union_field_list:
     ;
 
 union_field:
-    type IDENTIFIER ';' { pad(); std::cout << "union field: " << $2 << std::endl; }
+    type IDENTIFIER ';' { pad(); std::cout << "union field: " << $2 << std::endl; 
+        if ($1 == nullptr) { std::cout << "\033[31mWrong type: union field " << $2 << "\033[0m" << std::endl; }
+        $$ = new field($2, $1);
+    }
     ;
 
 
@@ -221,8 +229,8 @@ enum:
     ;
 
 enum_field_list:
-    enum_field 
-    | enum_field ',' enum_field_list
+    enum_field {}
+    | enum_field ',' enum_field_list {}
     ;
 
 enum_field:
@@ -244,8 +252,8 @@ identifier_list_with_definition:
         auto *tree = new list_node;
         auto *identifier = new Expression_class(AST::ASSIGN);
         identifier->left = new Term_class($1);
-        identifier->right = $3;
-        tree->push_back(identifier);
+        identifier->right = $3->expr;
+        tree->push_back(reinterpret_cast<node*>(identifier));
         $$ = tree;
     }
     | identifier_list_with_definition ',' IDENTIFIER ASSIGN expr
@@ -253,8 +261,8 @@ identifier_list_with_definition:
         pad(); std::cout << "definition: \033[35m" << $3 << "\033[0m" << std::endl; 
         auto *identifier = new Expression_class(AST::ASSIGN);
         identifier->left = new Term_class($3);
-        identifier->right = $5;
-        $$->push_back(identifier);
+        identifier->right = $5->expr;
+        $$->push_back(reinterpret_cast<node*>(identifier));
     }
     ;
 
@@ -277,13 +285,13 @@ identifier_list_without_definition:
 
 
 type:
-    IDENTIFIER { pad(); std::cout << "type: " << $1 << std::endl; }
-    | struct
-    | union
-    | enum
-    | STRUCT IDENTIFIER
-    | UNION IDENTIFIER
-    | ENUM IDENTIFIER
+    IDENTIFIER { $$ = find_type($1); }
+    | STRUCT IDENTIFIER { auto t = find_type($1); if (t != nullptr && t->type == AST::STRUCT) $$ = t; else $$ = nullptr;  }
+    | UNION IDENTIFIER  { auto t = find_type($1); if (t != nullptr && t->type == AST::UNION) $$ = t; else $$ = nullptr;  }
+    | ENUM IDENTIFIER   { auto t = find_type($1); if (t != nullptr && t->type == AST::ENUM) $$ = t; else $$ = nullptr;  }
+    | struct    {  }
+    | union     {  }
+    | enum      {  }
     ;
 
 // <== operations ==>
@@ -318,25 +326,25 @@ optexpr:
     ;
 
 expr:
-    lexpr                    { $$ = $1;  } 
-    | lvalue ASSIGN expr     { auto node = new Expression_class(AST::ASSIGN);      node->left = $1; node->right = $3; $$ = node; }
-    | lexpr PLUS expr        { auto node = new Expression_class(AST::PLUS);        node->left = $1; node->right = $3; $$ = node; }
-    | lexpr MINUS expr       { auto node = new Expression_class(AST::MINUS);       node->left = $1; node->right = $3; $$ = node; }
-    | lexpr MULTIPLY expr    { auto node = new Expression_class(AST::MULTIPLY);    node->left = $1; node->right = $3; $$ = node; }
-    | lexpr DIVIDE expr      { auto node = new Expression_class(AST::DIVIDE);      node->left = $1; node->right = $3; $$ = node; }
-    | lexpr BIT_AND expr     { auto node = new Expression_class(AST::BIT_AND);     node->left = $1; node->right = $3; $$ = node; }
-    | lexpr BIT_OR expr      { auto node = new Expression_class(AST::BIT_OR);      node->left = $1; node->right = $3; $$ = node; }
-    | lexpr BIT_XOR expr     { auto node = new Expression_class(AST::BIT_XOR);     node->left = $1; node->right = $3; $$ = node; }
-    | lexpr SHL expr         { auto node = new Expression_class(AST::SHL);         node->left = $1; node->right = $3; $$ = node; }
-    | lexpr SHR expr         { auto node = new Expression_class(AST::SHR);         node->left = $1; node->right = $3; $$ = node; }
-    | lexpr EQ expr          { auto node = new Expression_class(AST::EQ);          node->left = $1; node->right = $3; $$ = node; }
-    | lexpr NEQ expr         { auto node = new Expression_class(AST::NEQ);         node->left = $1; node->right = $3; $$ = node; }
-    | lexpr LT expr          { auto node = new Expression_class(AST::LT);          node->left = $1; node->right = $3; $$ = node; }
-    | lexpr LE expr          { auto node = new Expression_class(AST::LE);          node->left = $1; node->right = $3; $$ = node; }
-    | lexpr GT expr          { auto node = new Expression_class(AST::GT);          node->left = $1; node->right = $3; $$ = node; }
-    | lexpr GE expr          { auto node = new Expression_class(AST::GE);          node->left = $1; node->right = $3; $$ = node; }
-    | lexpr AND expr         { auto node = new Expression_class(AST::AND);         node->left = $1; node->right = $3; $$ = node; }
-    | lexpr OR expr          { auto node = new Expression_class(AST::OR);          node->left = $1; node->right = $3; $$ = node; }
+    lexpr                  { $$ = $1;  } 
+    | lvalue ASSIGN expr   { auto Expr = new Expression_class(AST::ASSIGN);    Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr PLUS expr      { auto Expr = new Expression_class(AST::PLUS);      Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr MINUS expr     { auto Expr = new Expression_class(AST::MINUS);     Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr MULTIPLY expr  { auto Expr = new Expression_class(AST::MULTIPLY);  Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr DIVIDE expr    { auto Expr = new Expression_class(AST::DIVIDE);    Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr BIT_AND expr   { auto Expr = new Expression_class(AST::BIT_AND);   Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr BIT_OR expr    { auto Expr = new Expression_class(AST::BIT_OR);    Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr BIT_XOR expr   { auto Expr = new Expression_class(AST::BIT_XOR);   Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr SHL expr       { auto Expr = new Expression_class(AST::SHL);       Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr SHR expr       { auto Expr = new Expression_class(AST::SHR);       Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr EQ expr        { auto Expr = new Expression_class(AST::EQ);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr NEQ expr       { auto Expr = new Expression_class(AST::NEQ);       Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr LT expr        { auto Expr = new Expression_class(AST::LT);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr LE expr        { auto Expr = new Expression_class(AST::LE);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr GT expr        { auto Expr = new Expression_class(AST::GT);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr GE expr        { auto Expr = new Expression_class(AST::GE);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr AND expr       { auto Expr = new Expression_class(AST::AND);       Expr->left = $1; Expr->right = $3; $$ = Expr; }
+    | lexpr OR expr        { auto Expr = new Expression_class(AST::OR);        Expr->left = $1; Expr->right = $3; $$ = Expr; }
     ;
 
 lexpr:
@@ -350,7 +358,7 @@ lvalue:
     ;
 
 factor:
-    MINUS term { auto node = new Expression_class(AST::MINUS); node->left = $2; $$ = node; }
+    MINUS term { auto Expr = new Expression_class(AST::MINUS); Expr->left = $2; $$ = Expr; }
     | term INC { /* Нужно создание новой переменной */ }
     | term DEC { /* Нужно создание новой переменной */ }
     ;
@@ -358,11 +366,11 @@ factor:
 
 prefix_term:
     INC term   { if (false /* если нет в таблице символов */) return 0;
-                 auto node = new Expression_class(AST::ASSIGN); node->left = $2; node->right = new Expression_class(AST::PLUS); 
-                 node->right->left = $2; node->right->right = new Term_class("1", AST::NUMBER); $$ = node; }
+                 auto Expr = new Expression_class(AST::ASSIGN); Expr->left = $2; Expr->right = new Expression_class(AST::PLUS); 
+                 Expr->right->left = $2; Expr->right->right = new Term_class("1", AST::NUMBER); $$ = Expr; }
     | DEC term { if (false /* если нет в таблице символов */) return 0;
-                 auto node = new Expression_class(AST::ASSIGN); node->left = $2; node->right = new Expression_class(AST::MINUS); 
-                 node->right->left = $2; node->right->right = new Term_class("1", AST::NUMBER); $$ = node;  }
+                 auto Expr = new Expression_class(AST::ASSIGN); node->left = $2; Expr->right = new Expression_class(AST::MINUS); 
+                 Expr->right->left = $2; Expr->right->right = new Term_class("1", AST::NUMBER); $$ = Expr;  }
     ;
 
 

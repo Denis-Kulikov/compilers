@@ -30,15 +30,18 @@ std::stack<tree_node*> expr_stack;
 
 void init()
 {
+    tables.symbols.find("name");
+
 }
 
 
 std::string print_token(const int token);
 
-bool find_type(char *name)
+node *find_type(char *name)
 {
-    auto t = tables.types.find(name);
-    return !(t == tables.types.end());
+    auto t = tables.symbols.find(name);
+    if (t == tables.symbols.end() || t->second->Elementary->type > AST::FUNCTION) return nullptr;
+    return t->second;
 }
 
 typedef struct
@@ -48,80 +51,35 @@ typedef struct
 
 
 void end_expr() {
-    // tree_node *trash = cur_expr->right; // мусорный узел
-    // cur_expr->right = cur_expr->right->left; // замена на переменную
-    // delete trash;
 }
 
-void push_type(const std::string &s) {
-    stacks.types.push(tables.symbols[s]);
-
-
+bool push_type(const std::string &name, node *type) {
+    auto t = tables.symbols.find(name);
+    if (t != tables.symbols.end() && t->second->Elementary->type > AST::FUNCTION) return false;
+    
+    tables.symbols[name] = type;
+    return true;
 }
 
 void parenthesis_close() {
     pad(); std::cout << "Close '()'" << std::endl;
-
-    // tree_node *trash = cur_expr->right; // мусорный узел
-    // cur_expr->right = cur_expr->right->left; // замена на переменную
-    // delete trash;
-
-    // cur_expr = stack_perenthesis.top(); // возврат на предыдущую ветку
-    // stack_perenthesis.pop();
-    // cur_var = cur_expr; // в node->right хранится cur_var
-
-    // cur_expr->right->left = stack_perenthesis.top()->right->right; // ***
-    // delete stack_perenthesis.top()->right; // ***
-    // stack_perenthesis.pop();
 }
 
 void parenthesis_open() {
     pad(); std::cout << "Open '()'" << std::endl;
-
-    // cur_expr продвигается и создаётся term
-    // cur_expr = cur_expr->right;
-    // cur_expr->right = new Expression_class;
-
-    // tree_node *new_offset1 = new tree_node;
-    // tree_node *new_offset2 = new tree_node;
-    // new_offset2->right = new_offset1;
-    // stack_perenthesis.push(new_offset2);        
-    // stack_perenthesis.push(cur_expr);
-
-    // // добавление смещения
-    // cur_expr = new_offset2; 
-    // cur_var = new_offset1;
 }
 
 void push_unary_operator(const int op) {
     pad(); std::cout << "unary_operator: " << print_token(op) << std::endl; // Отладочное сообщение
-    // CHECK_NULLPTRL (cur_expr);
-
-    // Expression_class *unary_operator = new Expression_class;
-
-    // unary_operator->left = cur_expr->right->left;
-    // cur_expr->right->left = unary_operator;
-
-    // unary_operator->token = op;
 }
 
 void push_operator(const int op) {
     pad(); std::cout << "operator: " << print_token(op) << std::endl; // Отладочное сообщение
-    // CHECK_NULLPTRL (cur_expr);
-
-    // cur_expr->token = op;
-    // // cur_expr = cur_expr->right; // right должен создать cur_var
 }
 
 void push_term(char *value, int t) {
     Term_class *term = new Term_class(value, nullptr, t);
     pad(); std::cout << "term: " << term->token << std::endl;
-    // CHECK_NULLPTRL (cur_var);
-    // cur_var->right = new Expression_class;
-    // cur_var = cur_var->right;
-    // cur_var->left = term;
-
-    // cur_expr = cur_expr->right;
 }
 
 
@@ -158,8 +116,8 @@ std::string print_token(int token) {
         return std::string("array");
     case AST::STRUCT:
         return std::string("struct");
-    case AST::CLASS:
-        return std::string("class");
+    // case AST::CLASS:
+    //     return std::string("class");
     case AST::FUNCTION:
         return std::string("function");
     case AST::ASSIGN:

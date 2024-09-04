@@ -24,18 +24,16 @@ namespace AST
 
         PTR,
         ARRAY,
-
-        FUNCTION,
-
+        
         STRUCT,
-        CLASS,
-
+        UNION,
         ENUM,
-        UNION
+
+        FUNCTION
     };
 
     enum Tokens {
-        TYPE = UNION + 1,
+        TYPE = FUNCTION + 1,
 
         IDENTIFIER,
         NUMBER,

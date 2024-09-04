@@ -93,9 +93,9 @@ extern Flags flags;
 "inline"                { PLUS_C(yyleng); flags.inline_ =   true; return INLINE; }
 "extern"                { PLUS_C(yyleng); flags.inline_ =   true; return EXTERN; }
 
-"struct"                { PLUS_C(yyleng); return STRUCT; }
-"union"                 { PLUS_C(yyleng); return UNION; }
-"enum"                  { PLUS_C(yyleng); return ENUM; }
+"struct"                { yylval.type_index = AST::STRUCT; PLUS_C(yyleng); return STRUCT; }
+"union"                 { yylval.type_index = AST::UNION; PLUS_C(yyleng); return UNION; }
+"enum"                  { yylval.type_index = AST::ENUM; PLUS_C(yyleng); return ENUM; }
 
 "typedef"               { PLUS_C(yyleng); return TYPEDEF; }
 
