@@ -16,12 +16,13 @@ int result;
 
 std::stack<tree_node*> stack_perenthesis;
 
-Elementary_types elementary_types;
-Tables tables(elementary_types);
+Tables tables;
 Stacks stacks;
 Flags flags;
 tree_node offset;
-Term_class *tree_root;
+tree *tree_root;
+
+list_stmt global_define;
 
 // tree_node *cur_expr = &offset;
 // tree_node *cur_var = &tree_root;
@@ -37,27 +38,20 @@ void init()
 
 std::string print_token(const int token);
 
-node *find_type(char *name)
+void end_expr() {}
+
+node *find_type(char *s)
 {
-    auto t = tables.symbols.find(name);
-    if (t == tables.symbols.end() || t->second->Elementary->type > AST::FUNCTION) return nullptr;
+    auto t = tables.symbols.find(s);
+    if (t == tables.symbols.end() || t->second->token > AST::FUNCTION) return nullptr;
     return t->second;
 }
 
-typedef struct
-{
-    /* data */ 
-} xxx;
-
-
-void end_expr() {
-}
-
-bool push_type(const std::string &name, node *type) {
-    auto t = tables.symbols.find(name);
-    if (t != tables.symbols.end() && t->second->Elementary->type > AST::FUNCTION) return false;
+bool push_type(const std::string &s, node *n) {
+    auto t = tables.symbols.find(s);
+    if (t != tables.symbols.end() && t->second->token > AST::FUNCTION) return false;
     
-    tables.symbols[name] = type;
+    tables.symbols[s] = n;
     return true;
 }
 
@@ -149,18 +143,74 @@ std::string print_token(int token) {
     }
 }
 
-void serialize(tree_node* node, std::ofstream& out) {
+void serialize(tree* node, std::ofstream& out) {
     if (node == nullptr) {
         out << "# ";
         return;
     }
-    if (node->token == AST::IDENTIFIER || node->token == AST::NUMBER) {
+    if (node->token == AST::IDENTIFIER) {
+        out << (reinterpret_cast<Term_class*>(node))->value << " ";
+        std::cout << "VAR: " << TERM(node)->value << " " << print_token(TERM(node)->type->token) << std::endl;
+    } else if (node->token == AST::NUMBER) {
         out << (reinterpret_cast<Term_class*>(node))->value << " ";
     } else {
         out << print_token(node->token) << " ";
     }
-    serialize(node->left, out);
-    serialize(node->right, out);
+
+    if (node->token > AST::NUMBER) {
+        std::cout << "TERM: " << print_token(TERM(node)->token) << std::endl;
+        serialize(TREE(node->left), out);
+        serialize(TREE(node->right), out);
+    } else {
+        out << "# # ";
+    }
+}
+
+void print_type(const Elementary_type *t) {
+    if (t == nullptr) {
+        std::cout << "\033[31mWrong type: nullptr\033[0m";
+        return;
+    }
+    do {
+        if (t->token < AST::PTR) {
+            std::cout << print_token(t->token) << " ";
+        } else if (t->token < AST::STRUCT) {
+            std::cout << print_token(t->token) << " ";
+            return;
+        } else { // FUNCTION
+            std::cout << print_token(t->token) << " ";
+            return;
+        }
+    } while (t->token > AST::DOUBLE);
+}
+
+void report() {
+    std::cout << "== == ==" << std::endl;
+    for (const auto &it : tables.symbols) {
+        std::cout << print_token(it.second->token) << " " << it.first << " ";
+        switch (it.second->token)
+        {
+        case AST::IDENTIFIER:
+            print_type(TERM(it.second)->type);
+            break;
+        
+        case AST::FUNCTION:
+            print_type(FUN(it.second)->type);
+            if (FUN(it.second)->parameters != nullptr) {
+                std::cout << "\n\t";
+                for (const auto &it : *FUN(it.second)->parameters) {
+                    std::cout << "| ";
+                    print_type(it->second);
+                    std::cout << " " << it->first << " ";
+                }
+            }
+            break;
+
+        default:
+            break;
+        }
+        std::cout << std::endl;
+    }
 }
 
 int main(void) {
@@ -175,6 +225,8 @@ int main(void) {
     std::ofstream out("tree.txt");
     serialize(tree_root, out);
     out.close();
+
+    report();
 
     return 0;
 }

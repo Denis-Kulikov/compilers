@@ -1,32 +1,17 @@
 
 #include "cpp-tree.hpp"
 
-typedef int my_type;
-
-typedef struct {
-    Elementary_type Bool    = AST::BOOL;
-    Elementary_type Char    = AST::CHAR;
-    Elementary_type Int     = AST::INT;
-    Elementary_type Float   = AST::FLOAT;
-    Elementary_type Double  = AST::DOUBLE;
-    Elementary_type Void    = AST::VOID;
-
-    // Примеры более сложных типов
-    // AST::Pointer_type IntPointer = {&Int};
-    // AST::Array_type IntArray = {&Int, 10};
-    // AST::Function_type IntToInt = {&Int, {&Int}};
-} Elementary_types;
 
 typedef struct Tables__ {
     std::unordered_map<std::string, node*> symbols;
 
-    Tables__ (const Elementary_types &elementary_types) {
-        symbols["void"]->Elementary = new Elementary_type(AST::VOID);
-        symbols["bool"]->Elementary = new Elementary_type(AST::BOOL);
-        symbols["char"]->Elementary = new Elementary_type(AST::CHAR);
-        symbols["int"]->Elementary = new Elementary_type(AST::INT);
-        symbols["float"]->Elementary = new Elementary_type(AST::FLOAT);
-        symbols["double"]->Elementary = new Elementary_type(AST::DOUBLE);
+    Tables__ () {
+        symbols["void"] = reinterpret_cast<node*>(new Elementary_type(AST::VOID));
+        symbols["bool"] = reinterpret_cast<node*>(new Elementary_type(AST::BOOL));
+        symbols["char"] = reinterpret_cast<node*>(new Elementary_type(AST::CHAR));
+        symbols["int"] = reinterpret_cast<node*>(new Elementary_type(AST::INT));
+        symbols["float"] = reinterpret_cast<node*>(new Elementary_type(AST::FLOAT));
+        symbols["double"] = reinterpret_cast<node*>(new Elementary_type(AST::DOUBLE));
     };
 } Tables;
 
@@ -46,11 +31,12 @@ typedef struct {
 
 void init();
 
-void serialize(tree_node* node, std::ofstream& out);
+void serialize(tree* node, std::ofstream& out);
 
-node *find_type(char *name);
+void print_type(const Elementary_type *t);
+node *find_type(char *s);
 void end_expr();
-bool push_type(const std::string &name, node *type);
+bool push_type(const std::string &s, node *t);
 
 void parenthesis_close();
 void parenthesis_open();

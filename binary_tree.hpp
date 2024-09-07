@@ -11,8 +11,6 @@
 
 namespace AST
 {
-    class Elementary_type;
-
     enum Basic_types {
         VOID,
 
@@ -34,6 +32,10 @@ namespace AST
 
     enum Tokens {
         TYPE = FUNCTION + 1,
+
+        IF,
+        WHILE,
+        FOR,
 
         IDENTIFIER,
         NUMBER,
@@ -66,17 +68,32 @@ namespace AST
         AND,
         OR,
 
+        STMT,
+        STMTS,
+
         END
     };
 }
 
-
-class tree_node {
+class node {
 public:
-    tree_node(int t) : token(t) {}
-    tree_node() {}
+    node(int t) : token(t) {};
+    const unsigned int token;
+};
 
-    int token = AST::VOID;
+class tree_node : public node {
+public:
+    tree_node(int t) : node(t) {};
+    tree_node() : node(AST::VOID) {};
+
+    node *left = nullptr;
+    node *right = nullptr;
+};
+
+class tree : public node {
+public:
+    tree(int t) : node(t) {};
+    tree() : node(AST::VOID) {};
 
     tree_node *left = nullptr;
     tree_node *right = nullptr;
