@@ -12,14 +12,13 @@
 namespace AST
 {
     enum Basic_types {
-        VOID,
-
         BOOL,
         CHAR,
         INT,
         FLOAT,
         DOUBLE,
 
+        VOID,
         PTR,
         ARRAY,
         
@@ -32,6 +31,9 @@ namespace AST
 
     enum Tokens {
         TYPE = FUNCTION + 1,
+        DEFINITION_VAR,
+        DEFINITION_TYPEDEF,
+        DEFINITION_FUN,
 
         IF,
         WHILE,
@@ -68,6 +70,9 @@ namespace AST
         AND,
         OR,
 
+        FUNCTION_CALL,
+
+        EXPRS,
         STMT,
         STMTS,
 
@@ -77,13 +82,15 @@ namespace AST
 
 class node {
 public:
-    node(int t) : token(t) {};
-    const unsigned int token;
+    node() : token(AST::VOID) {};
+    node(unsigned int t) : token(t) {};
+    unsigned int get_token() const { return token; }
+    unsigned int token;
 };
 
 class tree_node : public node {
 public:
-    tree_node(int t) : node(t) {};
+    tree_node(unsigned int t) : node(t) {};
     tree_node() : node(AST::VOID) {};
 
     node *left = nullptr;
@@ -92,9 +99,9 @@ public:
 
 class tree : public node {
 public:
-    tree(int t) : node(t) {};
+    tree(unsigned int t) : node(t) {};
     tree() : node(AST::VOID) {};
 
-    tree_node *left = nullptr;
-    tree_node *right = nullptr;
+    tree *left = nullptr;
+    tree *right = nullptr;
 };

@@ -1,6 +1,13 @@
-int y(int z);
-int x;
-int z = 3 + (7 - 4) / --y, a = 52;
+float calc() {
+    float f;
+}
+
+float foo() {
+    float f;
+    calc();
+}
+
 int main () {
-    int f;
+    float d;
+    foo();
 }

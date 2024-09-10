@@ -7,23 +7,24 @@ void yy_scan_string(const char *str);
 extern int current_line;
 extern int current_column;
 
-extern std::list<tree_node*> expr_stack;
 extern Term_class *tree_root;
-extern list_stmt global_define;
+extern list_node global_define;
 
 extern Tables tables;
+extern list_node program;
 
 %}
 
 %union {
     char* strval;
     unsigned int type_index;
-    class node *nodes;
+    class node *node_;
     class list_node *list;
+    class Type_info *type_;
+    class Define_class *def;
     class field *fields;
     class parameter *parameters;
     class list_parameter *list_parameters;
-    class list_stmt *stmts;
     class Function_type *fun;
 }
 
@@ -31,7 +32,7 @@ extern Tables tables;
 %token PLUS MINUS MULTIPLY DIVIDE
 %token EQ NEQ LT LE GT GE AND OR INC DEC SHL SHR BIT_AND BIT_OR BIT_XOR BIT_NOT AMPERSAND
 %token ASSIGN PLUSEQ MINUSEQ MULTEQ DIVEQ MODEQ ANDEQ OREQ XOREQ SHLEQ SHREQ
-%token  IF FOR WHILE DO SWITCH
+%token IF FOR WHILE DO SWITCH
 %token BREAK CONTINUE GOTO RETURN
 %token CASE DEFAULT
 %token CONST UNSIGNED LONG SHORT STATIC INLINE EXTERN
@@ -41,14 +42,15 @@ extern Tables tables;
 %left MULTIPLY DIVIDE
 %nonassoc UMINUS
 
-%type program
-%type <stmts> compound_stmt stmt_list
-%type <nodes> term prefix_term factor lvalue lexpr expr optexpr type stmt
-%type <nodes> variable_declaration type_declaration
-%type <nodes> fun_call arg_list
-%type <nodes> constructions selection_stmt iteration_stmt jump_stmt
-%type <fun> function_header
-%type <list> identifier_list_with_definition identifier_list_without_definition identifier_list
+%type <node_> finish
+%type <list> program
+%type <list> compound_stmt stmt_list
+%type <node_> term prefix_term factor lvalue lexpr expr optexpr stmt
+%type <type_> type 
+%type <node_> fun_call
+%type <node_> constructions selection_stmt iteration_stmt jump_stmt
+%type <def> variable_declaration function_header type_declaration typedef grouping_type
+%type <list> identifier_list_with_definition identifier_list_without_definition identifier_list arg_list
 %type <fields> struct_field union_field enum_field
 %type <parameters> parameter
 %type <list_parameters> parameter_list_with_name parameter_list
@@ -59,58 +61,43 @@ extern Tables tables;
 
 %%
 
-program:
-    type_declaration ';' 
-    | function_header ';'
-    | function_header compound_stmt { $1->code = $2; }
-    | variable_declaration ';' { global_define.push_back($1); }
-    | program type_declaration ';' 
-    | program function_header ';'
-    | program function_header compound_stmt { $2->code = $3; } 
-    | program variable_declaration ';' { global_define.push_back($2); }
+finish:
+    program { program.nodes = $1->nodes; }
     ;
 
-// definition_list:
-//     function_declaration,
-//     | type_declaration ';' { $$ = $1; }
-
-// declaration_list:
-//     declaration { $$ = new list_stmt(); if (declaration != nullptr) $$->push_back($1); }
-//     | declaration_list declaration { $$ = $1; if (declaration != nullptr) $1->push_back($2); }
-//     ;
-
-// definition:
-//     function_declaration,
-//     | type_declaration ';' { $$ = $1; }
-//     ;
-
-// declaration:
-//     | function_definition { $$ = $1; }
-//     | variable_declaration ';' { $$ = $1; }
-//     ;
+program:
+    type_declaration ';'                        { $$ = new list_node(); $$->nodes.push_back($1); }
+    | function_header ';'                       { $$ = new list_node(); $$->nodes.push_back($1); }
+    | function_header compound_stmt             { $$ = new list_node(); $$->nodes.push_back($1); $1->exprs.fun->second.code = $2; }
+    | variable_declaration ';'                  { $$ = new list_node(); $$->nodes.push_back($1); }
+    | program type_declaration ';'              { $$->nodes.push_back($2); }
+    | program function_header ';'               { $$->nodes.push_back($2); }
+    | program function_header compound_stmt     { $$->nodes.push_back($2); $2->exprs.fun->second.code = $3; } 
+    | program variable_declaration ';'          { $$->nodes.push_back($2); }
+    ;
 
 
 // <== function ==>
 fun_call:
-    IDENTIFIER '(' arg_list ')' { pad(); std::cout << "function: " << $1 << "" << std::endl; }
+    IDENTIFIER '(' arg_list ')' { $$ = new Function_call($1, $3); }
     ;
 
 arg_list:
-    /* empty */ {}
-    | expr { pad(); std::cout << "arg: " << "" << std::endl; }
-    | expr ',' arg_list { pad(); std::cout << "arg: " << "" << std::endl; }
+    /* empty */ { $$ = nullptr; }
+    | expr { $$ = new list_node(); $$->nodes.push_back($1); }
+    | arg_list ',' expr { $1->nodes.push_back($3); }
     ;
 
 
 function_header:
     type IDENTIFIER '(' parameter_list ')' { 
-        // if () если уже существует объявление или определение функции
-        auto *fh = new Function_type(TYPE($1), $4);
-        print_type(fh->type);
-        tables.symbols[$2] = fh;
-        $$ = fh;
-        pad(); std::cout << "function: \033[33m" << $2 << "\033[0m" << std::endl;
-     }
+        // auto *node = new std::pair<std::string, Function_type>;
+        auto *n = new std::pair<std::string, Function_type>(std::string($2), Function_type($4));
+        // node->first = std::string($2);
+        // node->second = Function_type($4);
+        n->second.code = nullptr;
+        $$ = new Define_class(AST::DEFINITION_FUN, $1, NODE(n));
+    }
     ;
 
 parameter_list:
@@ -166,8 +153,8 @@ case_list:
     ;
 
 case:
-    CASE expr ':' case_stmt_list    { pad(); std::cout << "case" << std::endl; }
-    | DEFAULT ':' case_stmt_list    { pad(); std::cout << "default" << std::endl; }
+    CASE expr ':' case_stmt_list    { std::cout << "case" << std::endl; }
+    | DEFAULT ':' case_stmt_list    { std::cout << "default" << std::endl; }
     ;
 
 case_stmt_list:
@@ -186,44 +173,27 @@ goto_point:
 
 // <== variable ==>
 variable_declaration:
-    type identifier_list 
-    {
-        pad(); std::cout << "\033[31m";
-        if ($2->empty()) std::cout << "Empty\033[0m" << std::endl;
-        for (const auto &it : *$2) {
-            node *n = TREE(it)->left != nullptr ? TREE(it)->left : n = it;
-            TERM(n)->type = TYPE($1);
-            if (tables.symbols.find(TERM(n)->value) == tables.symbols.end()) {
-                tables.symbols[TERM(n)->value] = it;
-            } else {
-                // переобъявление переменной!
-            }
-
-            // std::cout << it-> ->value << ' ';
-            tree_root = reinterpret_cast<Term_class*>(it);
-        } 
-        std::cout << "\033[0m" << std::endl;
-    }
+    type identifier_list { $$ = new Define_class(AST::DEFINITION_VAR, $1, NODE($2)); }
     ;
 
 // <== type ==>
 type_declaration:
-    typedef { pad(); std::cout << "typedef" << std::endl; }
-    | grouping_type {}
+    typedef { $$ = $1; }
+    | grouping_type { $$ = $1; }
     ;
 
 typedef:
-    TYPEDEF type IDENTIFIER ';' { if (push_type($3, $2)) { pad(); std::cout << "\033[34msErrorL: typedef\033[0m" << std::endl; } }
+    TYPEDEF type IDENTIFIER ';' { $$ = new Define_class(AST::DEFINITION_TYPEDEF, $2, NODE($3)); } // LIST !
     ;
 
 grouping_type:
-    struct      { pad(); std::cout << "\033[34m""struct""\033[0m" << std::endl; }
-    | union     { pad(); std::cout << "\033[34m""union""\033[0m" << std::endl; }
-    | enum      { pad(); std::cout << "\033[34m""enum""\033[0m" << std::endl; }
+    struct      { std::cout << "\033[34m""struct""\033[0m" << std::endl; }
+    | union     { std::cout << "\033[34m""union""\033[0m" << std::endl; }
+    | enum      { std::cout << "\033[34m""enum""\033[0m" << std::endl; }
     ;
 
 struct:
-    STRUCT '{' struct_field_list '}' // нужно запушить тип, чтобы иметь возможность сразу создать экземпляры struct {...} s;
+    STRUCT '{' struct_field_list '}' 
     | STRUCT identifier_list_without_definition '{' struct_field_list '}'
     ;
     
@@ -247,10 +217,7 @@ union_field_list:
     ;
 
 union_field:
-    type IDENTIFIER ';' { pad(); std::cout << "union field: " << $2 << std::endl; 
-        if ($1 == nullptr) { std::cout << "\033[31mWrong type: union field " << $2 << "\033[0m" << std::endl; }
-        $$ = new field($2, $1);
-    }
+    type IDENTIFIER ';' { $$ = new field($2, $1); }
     ;
 
 
@@ -265,8 +232,8 @@ enum_field_list:
     ;
 
 enum_field:
-    IDENTIFIER                  { pad(); std::cout << "enum field: " << $1 << std::endl; }
-    | IDENTIFIER ASSIGN expr    { pad(); std::cout << "enum field: " << $1 << std::endl; }
+    IDENTIFIER                  { std::cout << "enum field: " << $1 << std::endl; }
+    | IDENTIFIER ASSIGN expr    { std::cout << "enum field: " << $1 << std::endl; }
     ;
 
 
@@ -279,47 +246,36 @@ identifier_list:
 identifier_list_with_definition:
     IDENTIFIER ASSIGN expr
     {
-        pad(); std::cout << "definition: \033[35m" << $1 << "\033[0m" << std::endl; 
-        auto *expr = new list_node;
+        $$ = new list_node;
         auto *operation = new Expression_class(AST::ASSIGN);
         operation->left = new Term_class($1);
         operation->right = $3;
-        expr->push_back(reinterpret_cast<node*>(operation->left));
-        $$ = expr;
+        $$->nodes.push_back(reinterpret_cast<node*>(operation));
     }
     | identifier_list_with_definition ',' IDENTIFIER ASSIGN expr
     {
-        pad(); std::cout << "definition: \033[35m" << $3 << "\033[0m" << std::endl; 
         auto *operation = new Expression_class(AST::ASSIGN);
         operation->left = new Term_class($3);
         operation->right = $5;
-        $$->push_back(reinterpret_cast<node*>(operation->left));
+        $$->nodes.push_back(reinterpret_cast<node*>(operation));
     }
     ;
 
 identifier_list_without_definition:
     IDENTIFIER
     {
-        pad(); std::cout << "declaration: \033[35m" << $1 << "\033[0m" << std::endl;
-        auto *expr = new list_node;
-        auto *identifier = new Term_class($1);
-        expr->push_back(identifier);
-        $$ = expr;
+        $$ = new list_node;
+        $$->nodes.push_back(new Term_class($1));
     }
-    | identifier_list_without_definition ',' IDENTIFIER
-    {
-        pad(); std::cout << "declaration: \033[35m" << $3 << "\033[0m" << std::endl;
-        auto *identifier = new Term_class($3);
-        $$->push_back(identifier);
-    }
+    | identifier_list_without_definition ',' IDENTIFIER { $$->nodes.push_back(new Term_class($3)); }
     ;
 
 
 type:
-    IDENTIFIER { $$ = find_type($1); }
-    | STRUCT IDENTIFIER { auto t = find_type($2); if (t != nullptr && t->token == AST::STRUCT) $$ = t; else $$ = nullptr;  }
-    | UNION IDENTIFIER  { auto t = find_type($2); if (t != nullptr && t->token == AST::UNION) $$ = t; else $$ = nullptr;  }
-    | ENUM IDENTIFIER   { auto t = find_type($2); if (t != nullptr && t->token == AST::ENUM) $$ = t; else $$ = nullptr;  }
+    IDENTIFIER { $$ = new Type_info($1); } // массив из флагов [name | str | struct | union | enum | long | ptr ]
+    | STRUCT IDENTIFIER { /* auto t = find_type($2); if (t != nullptr && t->token == AST::STRUCT) $$ = t; else $$ = nullptr; */ }
+    | UNION IDENTIFIER  { /* auto t = find_type($2); if (t != nullptr && t->token == AST::UNION) $$ = t; else $$ = nullptr; */ }
+    | ENUM IDENTIFIER   { /* auto t = find_type($2); if (t != nullptr && t->token == AST::ENUM) $$ = t; else $$ = nullptr; */ }
     | struct    {  }
     | union     {  }
     | enum      {  }
@@ -337,8 +293,8 @@ compound_stmt:
     ;
 
 stmt_list:
-    stmt { $$ = new list_stmt(); if ($1 != nullptr) $$->push_back($1); }
-    | stmt_list stmt { $$ = $1; if ($2 != nullptr) $$->push_back($2); }
+    stmt { $$ = new list_node(); if ($1 != nullptr) $$->nodes.push_back($1); }
+    | stmt_list stmt { $$ = $1; if ($2 != nullptr) $$->nodes.push_back($2); }
     ;
 
 stmt:
@@ -396,19 +352,19 @@ factor:
 
 
 prefix_term:
-    INC term   { if (false /* если нет в таблице символов */) return 0;
-                 auto Expr = new Expression_class(AST::ASSIGN); Expr->left = $2; Expr->right = NODE(new Expression_class(AST::PLUS)); 
-                 TREE(Expr)->right->left = $2; TREE(Expr)->right->right = new Term_class("1", AST::NUMBER); $$ = Expr; }
-    | DEC term { if (false /* если нет в таблице символов */) return 0;
-                 auto Expr = new Expression_class(AST::ASSIGN); Expr->left = $2; Expr->right = NODE(new Expression_class(AST::MINUS)); 
-                 TREE(Expr)->right->left = $2; TREE(Expr)->right->right = new Term_class("1", AST::NUMBER); $$ = Expr;  }
+    INC term   { auto rvalue = new Expression_class(AST::PLUS); rvalue->left = $2; rvalue->right = new Term_class("1", AST::NUMBER);
+                 auto Expr = new Expression_class(AST::ASSIGN); Expr->left = $2; Expr->right = rvalue;
+                 $$ = Expr; }
+    | DEC term { auto rvalue = new Expression_class(AST::MINUS); rvalue->left = $2; rvalue->right = new Term_class("1", AST::NUMBER);
+                 auto Expr = new Expression_class(AST::ASSIGN); Expr->left = $2; Expr->right = rvalue;
+                 $$ = Expr; }
     ;
 
 
 term:
-    NUMBER { /* push_term(yylval.strval, AST::NUMBER); */ pad(); std::cout << $1 << std::endl; $$ = new Term_class($1, AST::NUMBER); }
-    | IDENTIFIER { pad(); std::cout << "term" << std::endl; if (tables.symbols.find($1) != tables.symbols.end()) $$ = tables.symbols[$1]; else $$ = nullptr; /* нужно создать таблицу символов*/}
-    | fun_call { }
+    NUMBER {  std::cout << $1 << std::endl; $$ = new Term_class($1, AST::NUMBER); }
+    | IDENTIFIER { $$ = new Term_class($1, AST::IDENTIFIER); }
+    | fun_call { $$ = $1; }
     | '(' expr ')' { $$ = $2; }
     ;
 
@@ -420,8 +376,6 @@ void yyerror(const char *s) {
 }
 
 void analysis(const std::string& filename) {
-    init();
-
     std::ifstream file(filename);
     if (!file) {
         std::cerr << "Error: Unable to open file " << filename << std::endl;
@@ -432,7 +386,7 @@ void analysis(const std::string& filename) {
     buffer << file.rdbuf();
     std::string str = buffer.str();
 
-    pad(); std::cout << "\033[32m" << str << "\033[0m" << std::endl;
+    std::cout << "\033[32m" << str << "\033[0m" << std::endl;
 
     yy_scan_string(str.c_str());
     yyparse();

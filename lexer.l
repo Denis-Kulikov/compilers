@@ -6,8 +6,6 @@
 int current_line = 1;
 int current_column = 1;
 
-extern Flags flags;
-
 #define PLUS_L current_line++; current_column = 1
 #define PLUS_C(X) current_column += X
 %}
@@ -56,11 +54,11 @@ extern Flags flags;
 
 
 
-"("                     { PLUS_C(yyleng); pad(); add_pad(); parenthesis_open(); return '('; }
-")"                     { PLUS_C(yyleng); remove_pad(); pad(); parenthesis_close(); return ')'; }
+"("                     { PLUS_C(yyleng); return '('; }
+")"                     { PLUS_C(yyleng); return ')'; }
 
-"{"                     { PLUS_C(yyleng); add_pad(); return '{'; }
-"}"                     { PLUS_C(yyleng); remove_pad(); return '}'; }
+"{"                     { PLUS_C(yyleng); return '{'; }
+"}"                     { PLUS_C(yyleng); return '}'; }
 
 ","                     { PLUS_C(yyleng); return ','; }
 ";"                     { PLUS_C(yyleng); return ';'; }
@@ -85,13 +83,13 @@ extern Flags flags;
 "case"                  { PLUS_C(yyleng); return CASE; }
 "default"               { PLUS_C(yyleng); return DEFAULT; }
 
-"const"                 { PLUS_C(yyleng); flags.const_ =    true; return CONST; }
-"unsigned"              { PLUS_C(yyleng); flags.unsigned_ = true; return UNSIGNED; }
-"long"                  { PLUS_C(yyleng); flags.long_ =     true; return LONG; }
-"short"                 { PLUS_C(yyleng); flags.short_ =    true; return SHORT; }
-"static"                { PLUS_C(yyleng); flags.static_ =   true; return STATIC; }
-"inline"                { PLUS_C(yyleng); flags.inline_ =   true; return INLINE; }
-"extern"                { PLUS_C(yyleng); flags.inline_ =   true; return EXTERN; }
+"const"                 { PLUS_C(yyleng); return CONST; }
+"unsigned"              { PLUS_C(yyleng); return UNSIGNED; }
+"long"                  { PLUS_C(yyleng); return LONG; }
+"short"                 { PLUS_C(yyleng); return SHORT; }
+"static"                { PLUS_C(yyleng); return STATIC; }
+"inline"                { PLUS_C(yyleng); return INLINE; }
+"extern"                { PLUS_C(yyleng); return EXTERN; }
 
 "struct"                { yylval.type_index = AST::STRUCT; PLUS_C(yyleng); return STRUCT; }
 "union"                 { yylval.type_index = AST::UNION; PLUS_C(yyleng); return UNION; }
