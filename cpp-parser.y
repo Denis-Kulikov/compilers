@@ -131,7 +131,7 @@ selection_stmt:
 iteration_stmt:
     WHILE '(' expr ')' stmt                             { $$ = NODE(new while_class(EXPR($3), STMTS($5))); }
     | DO stmt WHILE '(' expr ')' ';'                    { $$ = nullptr; } // !!!
-    | FOR '(' optexpr ';' optexpr ';' optexpr ')' stmt  { $$ = nullptr; } // !!!
+    | FOR '(' optexpr ';' optexpr ';' optexpr ')' stmt  { $$ = NODE(new for_class(STMTS($9), EXPR($3), EXPR($5), EXPR($7))); } // !!!
     ;
 
 jump_stmt:
@@ -293,7 +293,7 @@ compound_stmt:
     ;
 
 stmt_list:
-    stmt { $$ = new list_node(); if ($1 != nullptr) $$->nodes.push_back($1); }
+    stmt { $$ = new list_node(AST::STMTS); if ($1 != nullptr) $$->nodes.push_back($1); }
     | stmt_list stmt { $$ = $1; if ($2 != nullptr) $$->nodes.push_back($2); }
     ;
 
@@ -362,10 +362,10 @@ prefix_term:
 
 
 term:
-    NUMBER {  std::cout << $1 << std::endl; $$ = new Term_class($1, AST::NUMBER); }
-    | IDENTIFIER { $$ = new Term_class($1, AST::IDENTIFIER); }
-    | fun_call { $$ = $1; }
-    | '(' expr ')' { $$ = $2; }
+    NUMBER          { $$ = new Term_class($1, AST::NUMBER); }
+    | IDENTIFIER    { $$ = new Term_class($1, AST::IDENTIFIER); }
+    | fun_call      { $$ = $1; }
+    | '(' expr ')'  { $$ = $2; }
     ;
 
 %%

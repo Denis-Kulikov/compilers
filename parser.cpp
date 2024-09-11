@@ -1,109 +1,39 @@
-#include "parser.hpp"
+#include "print_token.cpp"
 
 #define PAD for (int i = 0; i < depth; i++) std::cout << '\t';
+#define PRINT_TOKEN std::cout << print_token(TERM(n)->get_token()) << ' ';
 #define CHECK_NULLPTRL(PTR) if (!PTR) { std::cerr << "Error: nullptr in " << __FUNCTION__ << std::endl; return; }
 
 Tables tables;
 tree *tree_root;
 list_node program;
 
+std::ofstream tty_file;
 
-node *find_type(char *s)
-{
-    auto t = tables.symbols.find(s);
-    if (t == tables.symbols.end() || t->second->token > AST::FUNCTION) return nullptr;
-    return t->second;
+
+void send_message_to_tty(const std::string& message) {
+    tty_file << message << std::endl;
 }
 
-bool push_type(const std::string &s, node *n) {
-    auto t = tables.symbols.find(s);
-    if (t != tables.symbols.end() && t->second->token > AST::FUNCTION) return false;
-    
-    tables.symbols[s] = n;
-    return true;
-}
-
-std::string print_token(int token) {
-    switch (token) {
-    case AST::BOOL:
-        return std::string("bool");
-    case AST::CHAR:
-        return std::string("char");
-    case AST::INT:
-        return std::string("int");
-    case AST::FLOAT:
-        return std::string("float");
-    case AST::DOUBLE:
-        return std::string("double");
-    case AST::VOID:
-        return std::string("void");
-    case AST::PTR:
-        return std::string("ptr");
-    case AST::ARRAY:
-        return std::string("array");
-    case AST::STRUCT:
-        return std::string("struct");
-
-    case AST::DEFINITION_VAR:
-        return std::string("def_var");
-    case AST::DEFINITION_TYPEDEF:
-        return std::string("def_type");
-    case AST::DEFINITION_FUN:
-        return std::string("def_fun");
-
-    case AST::IF:
-        return std::string("if");
-    case AST::WHILE:
-        return std::string("while");
-    case AST::FOR:
-        return std::string("for");
-
-    case AST::NUMBER:
-        return std::string("number");
-    case AST::IDENTIFIER:
-        return std::string("id");
-    case AST::END:
-
-
-    // case AST::CLASS:
-    //     return std::string("class");
-    case AST::FUNCTION:
-        return std::string("function");
-    case AST::ASSIGN:
-        return std::string("assign");
-    case AST::PLUS:
-        return std::string("plus");
-    case AST::MINUS:
-        return std::string("minus");
-    case AST::MULTIPLY:
-        return std::string("multiply");
-    case AST::DIVIDE:
-        return std::string("divide");
-    case AST::PRE_INC:
-        return std::string("pre_inc");
-    case AST::PRE_DEC:
-        return std::string("pre_dec");
-    case AST::INC_POST:
-        return std::string("inc_post");
-    case AST::DEC_POST:
-        return std::string("dec_post");
-    case AST::FUNCTION_CALL:
-        return std::string("f_call");
-
-    case AST::EXPRS:
-        return std::string("EXPRS");
-    case AST::STMT:
-        return std::string("stmt");
-    case AST::STMTS:
-        return std::string("STMTS");
-
-    default:
-        return std::string("wrng_tkn_" + std::to_string(token));
+void print_variable_scoping(const list_node *stmts) {
+    if (stmts->parent != nullptr) print_variable_scoping(stmts->parent);
+    if (!stmts->symbols.empty()) {
+        for (const auto &it : stmts->symbols) {
+            send_message_to_tty(it.first);
+        }
+        send_message_to_tty("");
     }
 }
 
 void print_table(const list_node *l) {
     for (const auto &it : l->symbols) { std::cout << it.first << " " << print_token(it.second->get_token()) << std::endl; }
+}
+
+Symbol *find_symbol_local(list_node *stmts, const std::string s) {
+    if (stmts == nullptr) return nullptr;
+    auto n = stmts->symbols.find(s);
+
+    return n == stmts->symbols.end() ? nullptr : (*n).second;
 }
 
 Symbol *find_symbol(list_node *stmts, const std::string s) {
@@ -118,15 +48,14 @@ void serialize(tree* node, std::ofstream& out) {
         out << "# ";
         return;
     }
-    if (node->token == AST::IDENTIFIER) {
-        out << (reinterpret_cast<Term_class*>(node))->value << " ";
-    } else if (node->token == AST::NUMBER) {
+    const auto& t = node->token;
+    if (t == AST::IDENTIFIER || t == AST::NUMBER || t == AST::FUNCTION_CALL) {
         out << (reinterpret_cast<Term_class*>(node))->value << " ";
     } else {
         out << print_token(node->token) << " ";
     }
 
-    if (node->token > AST::NUMBER) {
+    if (node->token > AST::FUNCTION_CALL) {
         serialize(TREE(node->left), out);
         serialize(TREE(node->right), out);
     } else {
@@ -152,47 +81,13 @@ void print_type(const Elementary_type *t) {
     } while (t->token > AST::DOUBLE);
 }
 
-// void report() {
-//     std::cout << "== == ==" << std::endl;
-//     for (const auto &it : tables.symbols) {
-//         std::cout << print_token(it.second->token) << " " << it.first << " ";
-//         switch (it.second->token)
-//         {
-//         case AST::IDENTIFIER:
-//             print_type(TERM(it.second)->type);
-//             break;
-        
-//         case AST::FUNCTION:
-//             print_type(FUN(it.second)->type);
-//             if (FUN(it.second)->parameters != nullptr) {
-//                 std::cout << "\n\t";
-//                 for (const auto &it : *FUN(it.second)->parameters) {
-//                     std::cout << "| ";
-//                     print_type(it->second);
-//                     std::cout << " " << it->first << " ";
-//                 }
-//             }
-//             break;
-
-//         default:
-//             break;
-//         }
-//         std::cout << std::endl;
-//     }
-// }
-
-class tree_ref {
-public:
-    tree_ref(Expression_class *n, tree_ref *p) : node(n), parent(p) {};
-    tree_ref(Expression_class *n) : tree_ref(n, nullptr) {};
-    Expression_class *node;
-    tree_ref *parent;
-} ;
+void print_code(list_node *stmts, std::size_t depth);
 
 void correct_order_expr(tree_ref *expr) {
-    const unsigned int priority[AST::FUNCTION_CALL - AST::IDENTIFIER + 1] = {
+    const unsigned int priority[AST::EXPRS - AST::IDENTIFIER + 1] = {
         /* IDENTIFIER    */ 15,   // наивысший приоритет для идентификаторов и чисел
         /* NUMBER        */ 15,   // наивысший приоритет для чисел
+        /* FUNCTION_CALL */ 15,    // вызов функции
         /* ASSIGN        */ 16,   // присваивание
         /* PLUS          */ 6,   // сложение
         /* MINUS         */ 6,   // вычитание
@@ -214,32 +109,22 @@ void correct_order_expr(tree_ref *expr) {
         /* GT            */ 0,  // больше
         /* GE            */ 0,  // больше или равно
         /* AND           */ 0,  // логическое И
-        /* OR            */ 0,  // логическое ИЛИ
-        /* FUNCTION_CALL */ 15    // вызов функции
+        /* OR            */ 0   // логическое ИЛИ
     };
 
-    if (expr->node->right == nullptr) return;
-    // std::cout << "T = " << print_token(expr->node->get_token()) << std::endl;
+    if (expr->node->right == nullptr) return; // для 
 
     tree_ref right(EXPR(expr->node->right), expr);
 
     if (priority[expr->node->get_token() - AST::IDENTIFIER] < priority[right.node->get_token() - AST::IDENTIFIER]) {
-            // std::cout << print_token(expr->node->get_token()) << " " << priority[expr->node->get_token() - AST::IDENTIFIER] << " "
-            // << print_token(right.node->get_token()) << " " << priority[right.node->get_token() - AST::IDENTIFIER] << std::endl;
+        // std::cout << print_token(expr->node->get_token()) << ' ' << priority[expr->node->get_token() - AST::IDENTIFIER] << ' '
+        // << print_token(right.node->get_token()) << ' ' << priority[right.node->get_token() - AST::IDENTIFIER] << std::endl;
+        if (right.node->get_token() <= AST::FUNCTION_CALL) return;
         if (expr->parent == nullptr) { return; }
         expr->parent->node->right = right.node;
         expr->node->right = right.node->left;
         right.node->left = expr->node;
         return;
-
-        // if (expr->node->left->get_token() != AST::IDENTIFIER && expr->node->left->get_token() != AST::NUMBER && expr->node->left->get_token() != AST::FUNCTION_CALL) {
-        //     tree_ref e(EXPR(expr->node->left), expr);
-        //     correct_order_expr(&e);
-        // }
-        // if (expr->node->right->get_token() != AST::IDENTIFIER && expr->node->right->get_token() != AST::NUMBER && expr->node->right->get_token() != AST::FUNCTION_CALL) {
-        //     tree_ref e(EXPR(expr->node->right), expr);
-        //     correct_order_expr(&e);
-        // }
     } 
 
     if (right.node->get_token() == AST::IDENTIFIER || right.node->get_token() == AST::NUMBER || right.node->get_token() == AST::FUNCTION_CALL)
@@ -247,26 +132,7 @@ void correct_order_expr(tree_ref *expr) {
 
     tree_ref e(EXPR(right.node), expr);
     correct_order_expr(&e);
-
-
-    // if (right.node->get_token() == AST::IDENTIFIER || right.node->get_token() == AST::NUMBER || right.node->get_token() == AST::FUNCTION_CALL)
-    //     return;
-
-    // if (right.node->left->get_token() != AST::IDENTIFIER && right.node->left->get_token() != AST::NUMBER &&
-    //     right.node->left->get_token() != AST::FUNCTION_CALL) {
-    //     tree_ref e(EXPR(right.node->left), expr);
-    //     correct_order_expr(&e);
-    // }
-
-
-    // if (right.node->right != nullptr &&
-    //     right.node->right->get_token() != AST::IDENTIFIER && right.node->right->get_token() != AST::NUMBER && right.node->left->get_token() != AST::FUNCTION_CALL) {
-    //     tree_ref e(EXPR(right.node->right), expr);
-    //     correct_order_expr(&e);
-    // }
 }
-
-void print_code(list_node *stmts, std::size_t depth);
 
 void correct_order_expr(Expression_class *expr) {
     if (expr->get_token() == AST::IDENTIFIER || expr->get_token() == AST::NUMBER) return;
@@ -274,18 +140,16 @@ void correct_order_expr(Expression_class *expr) {
     tree_ref left(EXPR(expr->left), &root);
     correct_order_expr(&root);
     if (expr->left->get_token() == AST::IDENTIFIER || expr->left->get_token() == AST::NUMBER) return;
-    correct_order_expr(&left);
-}
+    correct_order_expr(&left);}
 
 
 void print_term(node *n, std::size_t depth) {
-    PAD;
-    std::cout << print_token(TERM(n)->get_token()) << ' ' << TERM(n)->value << std::endl;
+    PAD; PRINT_TOKEN;
+    std::cout << TERM(n)->value << std::endl;
 }
 
 void print_operation(node *n, std::size_t depth) {
-    PAD;
-    std::cout << print_token(EXPR(n)->get_token()) << ' ';
+    PAD; PRINT_TOKEN;
 
     if (EXPR(n)->get_token() == AST::ASSIGN) {
         tree *node = TREE(n);
@@ -298,72 +162,119 @@ void print_operation(node *n, std::size_t depth) {
     // out.close();
     // getchar();}
 
-    {correct_order_expr(EXPR(n));
-    std::ofstream out("tree.txt");
-    serialize(TREE(n), out);
-    out.close();
-    getchar();}
+    {
+        correct_order_expr(EXPR(n));
+        std::ofstream out("tree.txt");
+        serialize(TREE(n), out);
+        out.close();
+        getchar();
+    }
     // std::cout << std::endl;
 }
 
 void print_if(node *n, std::size_t depth)
 {
-    PAD;
-    std::cout << print_token(IF(n)->get_token()) << ' ';
-    if (IF(n)->if_true != nullptr) {
-        std::cout << std::endl;
-        if (OPERATORS(IF(n)->if_true->get_token()))
-            print_operation(IF(n)->if_true, depth + 1);
+    PAD; 
+    std::cout << LBL << print_token(n->get_token()) << ' ' << COM;
+    print_operation(NODE(NODE_IF(n)->condition), depth);
+
+    if (NODE_IF(n)->if_true != nullptr) {
+        if (OPERATORS(NODE_IF(n)->if_true->get_token()))
+            print_operation(NODE_IF(n)->if_true, depth + 1);
         else
-            print_code(IF(n)->if_true, depth + 1);
+            print_code(NODE_IF(n)->if_true, depth + 1);
     }
-    if (IF(n)->if_false != nullptr) {
-        std::cout << std::endl;
-        if (OPERATORS(IF(n)->if_true->get_token()))
-            print_operation(IF(n)->if_false, depth + 1);
+    if (NODE_IF(n)->if_false != nullptr) {
+        PAD; std::cout << "else" << std::endl; 
+        if (OPERATORS(NODE_IF(n)->if_true->get_token()))
+            print_operation(NODE_IF(n)->if_false, depth + 1);
         else
-            print_code(IF(n)->if_false, depth + 1);
+            print_code(NODE_IF(n)->if_false, depth + 1);
     }
-    std::cout << std::endl;
+    // std::cout << std::endl;
 }
 
+void print_while(node *n, std::size_t depth)
+{
+    PAD; 
+    std::cout << LBL << print_token(n->get_token()) << ' ' << COM;
+    print_operation(NODE(NODE_WHILE(n)->condition), depth);
+
+    if (NODE_WHILE(n)->stmts != nullptr) {
+        if (OPERATORS(NODE_WHILE(n)->stmts->get_token()))
+            print_operation(NODE_WHILE(n)->stmts, depth + 1);
+        else
+            print_code(NODE_WHILE(n)->stmts, depth + 1);
+    }
+}
+
+void print_for(node *n, std::size_t depth)
+{
+    PAD; 
+    std::cout << LBL << print_token(n->get_token()) << ' ' << COM << std::endl;
+    if (NODE_FOR(n)->optexprs[0] != nullptr)
+        for (auto &it : DEF(NODE_FOR(n)->optexprs[0])->exprs.vars->nodes) {
+            print_operation(it, depth);
+        }
+
+    for (int i = 1; i < 3; i++) {
+        if (NODE_FOR(n)->optexprs[i] != nullptr)
+            print_operation(NODE(NODE_FOR(n)->optexprs[i]), depth);
+    }
+
+    print_code(NODE_FOR(n)->stmts, depth + 1);
+}
+
+
 void print_function_call(node *n, std::size_t depth) {
-    static std::string prev_function_name;
-    PAD;
-    // std::cout << print_token(n->get_token()) << ' ' << std::endl;
-    // auto f = find_symbol(EXPRS(n), );
-    // if (f == tables.symbols.end()) {
-    //     std::cout << "Функция не объявлена" << std::endl;
-    // } else {
-    //     if (FUN(f->second)->code == nullptr) {
-    //         std::cout << "Функция не определена" << std::endl;
-    //     } else {
-    //         std::cout << FUN_CALL(n)->value;
-    //         std::cout << std::endl;
-            // print_table(FUN(f->second)->code);
-        //     if (prev_function_name != FUN_CALL(n)->value) {
-        //         prev_function_name = FUN_CALL(n)->value;
-        //         print_code(FUN(f->second)->code, depth + 1);
-        //     }
-        // }
-    // }
+}
+
+bool check_expr(list_node *stmt, node *n) { // true - если ошибка
+    auto t = n->get_token();
+    if (t == AST::IDENTIFIER || t == AST::FUNCTION_CALL) 
+        return find_symbol(stmt, TERM(n)->value) == nullptr;
+    if (t == AST::NUMBER)
+        return false;
+
+    return check_expr(stmt, TREE_NODE(n)->left) || check_expr(stmt, TREE_NODE(n)->right);
 }
 
 void print_code(list_node *stmts, std::size_t depth = 0) {
-    print_table(stmts);
+    static std::stack<list_node*> prev;
+    send_message_to_tty("\n== == ==\n");
+    send_message_to_tty(CLEAR);
+    print_variable_scoping(stmts);
     for (const auto &it : stmts->nodes) {
         const unsigned int t = it->get_token();
 
         if (t == AST::IDENTIFIER || t == AST::NUMBER) {
-            // print_term(it, depth);
-        } else if (t >= AST::ASSIGN && t <= AST::OR) {
-            // print_operation(it, depth);
+            // std::cout << "print_term" << std::endl;
+            print_term(it, depth);
+        } else if (OPERATORS(t)) {
+            print_operation(it, depth);
+        } else if (t == AST::DEFINITION_VAR) {
+            // std::cout << "DEFINITION_VAR" << std::endl;
+            print_code(DEF(it)->exprs.vars, depth);
         } else if (t == AST::EXPRS) {
-            // print_code(EXPRS(it), depth);
+            // std::cout << "print_code" << std::endl;
+            prev.push(stmts);
+            print_code(EXPRS(it), depth);
+            prev.pop();
         } else if (t == AST::STMTS) {
+            std::cout << BLUE "compound stmt" COM << std::endl;
+            // STMTS(it)->parent = stmts;
+            // stmts->parent = prev.top();
+            // prev.push(stmts);
+            print_code(EXPRS(it), depth + 1);
+            // prev.pop();
         } else if (t == AST::IF) {
-            // print_if(it, depth);
+            print_if(it, depth);
+        } else if (t == AST::WHILE) {
+            print_while(it, depth);
+        } else if (t == AST::FOR) {
+            print_for(it, depth);
         } else if (t == AST::FUNCTION_CALL) {
+            // std::cout << "FUNCTION_CALL" << std::endl;
             auto *f = SYM_FUN(find_symbol(stmts, FUN_CALL(it)->value));
             if (f == nullptr) {
                 std::cout << "Функция не объявлена" << std::endl;
@@ -374,17 +285,11 @@ void print_code(list_node *stmts, std::size_t depth = 0) {
                 } 
             }
 
+            PAD;
             std::cout << GLD << FUN_CALL(it)->value << ": "<< COM << std::endl;
             print_code(f->fun->code, depth + 1);
-            // print_function_call(f->fun->code, depth);
-
-            // std::cout << GLD << FUN_CALL(it)->value << COM << std::endl;
-            // auto *f = find_symbol(stmts, TERM(it)->value);
-            // if (f != nullptr) {
-            //     print_code(SYM_FUN(f)->fun->code);
-            // }
         } else {
-            // std::cout << print_token(t) << std::endl;
+            std::cout << print_token(t) << std::endl;
         }
     }
 }
@@ -410,20 +315,41 @@ void print_main() {
     print_code(code);
 }
 
-
+void create_variables(list_node *stmts, list_node *l, Elementary_type *type) {
+    for (auto &it : l->nodes) {
+        std::string *name;
+        if (it->get_token() == AST::IDENTIFIER) {
+            auto n = find_symbol_local(stmts, TERM(it)->value);
+            if (n != nullptr) { // тип занят
+                std::cout << "Переопределение переменной " << std::endl;
+                abort();
+            }
+            name = &TERM(it)->value;
+        } else {
+            auto n = find_symbol_local(stmts, TERM(TREE_NODE(it)->left)->value);
+            if (n != nullptr) { // тип ещё не занят
+                std::cout << "Переопределение переменной " << std::endl;
+                abort();
+            }
+            if (check_expr(stmts, TREE_NODE(it)->right)) {
+                std::cout << "Ошибка в выражении" << std::endl;
+                abort();
+            } 
+            name = &TERM(TREE_NODE(it)->left)->value;
+        }
+        stmts->symbols[*name] = new Symbol(AST::IDENTIFIER, type);
+    }
+}
 
 void create_symbol_tables(list_node *stmts) {
     for (auto &it : stmts->nodes) {
         const unsigned int t = it->get_token();
 
-        std::cout << "T = " << print_token(t) << std::endl;
-
         if (t == AST::DEFINITION_FUN) {
             std::string &name = DEF(it)->exprs.fun->first;
             Function_type *fun = &DEF(it)->exprs.fun->second;
-            auto n = find_symbol(stmts, name);
+            auto n = find_symbol_local(stmts, name);
             if (n == nullptr) { // индификатор ещё не занят
-                std::cout << DEF(it)->type->name << std::endl;
                 auto type = find_symbol(stmts, DEF(it)->type->name);
                 if (type == nullptr) { 
                     std::cout << "Возвращаемое значение имеет неизвестный тип: " << DEF(it)->type->name << std::endl;
@@ -436,32 +362,38 @@ void create_symbol_tables(list_node *stmts) {
                 stmts->symbols[name] = new Symbol_Fun(AST::FUNCTION, type->type, fun);
 
                 if (fun->code) {
+                    if (fun->parameters != nullptr) {
+                        for (const auto &itt : *DEF(it)->exprs.fun->second.parameters) 
+                            fun->code->symbols[itt->first] = new Symbol(AST::IDENTIFIER, itt->second);
+                    }
                     fun->code->parent = stmts;
                     create_symbol_tables(fun->code);
                 }
-            }
-            // else {
-            //     if (n->get_token() != AST::FUNCTION) {
-            //         std::cout << "Это не функция: " << DEF(it)->type->name << std::endl;
-            //         abort();
-            //     }
-            //     if (DEF(it)->exprs.fun->second.code == nullptr) {
-            //         // проверка на схожесть и ошибки
-            //         std::cout << "Переобъявление функции: " << DEF(it)->type->name << std::endl;
-            //         abort();
-            //     }
-            //     if (FUN(n)->code != nullptr) {
-            //         std::cout << "ХЗ вроде это ок: " << DEF(it)->type->name << std::endl; 
-            //         abort();
-            //     }
-            //     FUN(n)->code = FUN(it)->code;
-            //     FUN(n)->code->parent = stmts;
-            //     create_symbol_tables(FUN(n)->code);
-            //     // проверка на схожест с объявлением.
-            // }
-        } else if (t == AST::DEFINITION_VAR) {
-            list_node &l = *EXPRS(DEF(it)->exprs.vars);
+            } else {
+                if (n->get_token() != AST::FUNCTION) {
+                    std::cout << "Изначальное определение объекта - не функция: " << DEF(it)->type->name << std::endl;
+                    abort();
+                }
+                if (fun->code == nullptr) {
+                    // проверка на схожесть и ошибки
+                    std::cout << "Переобъявление функции: " << DEF(it)->type->name << std::endl;
+                    abort();
+                }
+                if (FUN(n)->code != nullptr) {
+                    std::cout << "ХЗ вроде это ок: " << DEF(it)->type->name << std::endl; 
+                    abort();
+                }
+                // if (fun->parameters != nullptr) {
+                //     for (const auto &itt : *DEF(it)->exprs.fun->second.parameters) 
+                //         fun->code->symbols[itt->first] = new Symbol(AST::IDENTIFIER, itt->second);
+                // }
 
+                SYM_FUN(n)->fun->code = fun->code;
+                SYM_FUN(n)->fun->code->parent = stmts;
+                create_symbol_tables(SYM_FUN(n)->fun->code);
+                // проверка на схожест с объявлением.
+            }
+        } else if (t == AST::DEFINITION_VAR) {
             auto type = find_symbol(stmts, DEF(it)->type->name);
             if (type == nullptr) { 
                 std::cout << "тип не найден: var: " << std::endl;
@@ -472,34 +404,122 @@ void create_symbol_tables(list_node *stmts) {
                 abort();
             }
 
-            for (auto &itt : l.nodes) {
-                std::string *name;
-                if (itt->get_token() == AST::IDENTIFIER) {
-                    auto n = find_symbol(stmts, TERM(itt)->value);
-                    if (n != nullptr) { // тип ещё не занят
-                        std::cout << "Переопределение переменной " << std::endl;
-                        abort();
-                    }
-                    name = &TERM(itt)->value;
-                } else {
-                    auto n = find_symbol(stmts, TERM(TREE_NODE(itt)->left)->value);
-                    if (n != nullptr) { // тип ещё не занят
-                        std::cout << "Переопределение переменной " << std::endl;
-                        abort();
-                    }
-                    name = &TERM(TREE_NODE(itt)->left)->value;
-                }
-                stmts->symbols[*name] = new Symbol(AST::IDENTIFIER, type->type);
-            }
+            list_node *l = EXPRS(DEF(it)->exprs.vars);
+            l->parent = stmts;
+            create_variables(stmts, l, TYPE(type));
         } else if (t == AST::DEFINITION_TYPEDEF) {
+        } else if (t == AST::EXPRS) {
+        } else if (t == AST::STMTS) {
+            STMTS(it)->parent = stmts;
+            create_symbol_tables(STMTS(it));
+        } else if (t == AST::IF) {
+            if (NODE_IF(it)->condition == nullptr) {
+                std::cout << "Ожидается условие" << std::endl;
+                abort();
+            }
+            if (check_expr(stmts, NODE_IF(it)->condition)) {
+                std::cout << "Ошибка в выраженииif" << std::endl;
+                abort();
+            }
+            if (NODE_IF(it)->if_true != nullptr) {
+                const auto tt =  NODE_IF(it)->if_true->get_token();
+                if (STMT(tt)) {
+                    if (check_expr(stmts, NODE_IF(it)->condition)) {
+                        std::cout << "Ошибка в выражении" << std::endl;
+                        abort();
+                    }
+                } else {
+                    NODE_IF(it)->if_true->parent = stmts;
+                    create_symbol_tables(NODE_IF(it)->if_true);
+                }
+            }
+            if (NODE_IF(it)->if_false != nullptr) {
+                const auto tt =  NODE_IF(it)->if_false->get_token();
+                if (STMT(tt)) {
+                    if (check_expr(stmts, NODE_IF(it)->condition)) {
+                        std::cout << "Ошибка в выражении" << std::endl;
+                        abort();
+                    }
+                } else {
+                    NODE_IF(it)->if_false = stmts;
+                    create_symbol_tables(NODE_IF(it)->if_false);
+                }
+            }
+        } else if (t == AST::WHILE) {
+            if (NODE_WHILE(it)->condition == nullptr) {
+                std::cout << "Ожидается условие" << std::endl;
+                abort();
+            }
+            if (check_expr(stmts, NODE_WHILE(it)->condition)) {
+                std::cout << "Ошибка в выраженииif" << std::endl;
+                abort();
+            }
+            const auto tt =  NODE_WHILE(it)->stmts->get_token();
+            if (STMT(tt)) {
+                if (check_expr(stmts, NODE_WHILE(it)->condition)) {
+                    std::cout << "Ошибка в выражении" << std::endl;
+                    abort();
+                }
+            } else {
+                NODE_WHILE(it)->stmts->parent = stmts;
+                create_symbol_tables(NODE_WHILE(it)->stmts);
+            }
+        } else if (t == AST::FOR) {
+            int def = 0;
+            if (NODE_FOR(it)->stmts == nullptr) {
+                NODE_FOR(it)->stmts = new list_node;
+            } else {
+                if (STMT(NODE_FOR(it)->stmts->get_token())) {
+                    if (check_expr(stmts, NODE_FOR(it)->stmts)) {
+                        std::cout << "Ошибка в выражении" << std::endl;
+                        abort();
+                    }
+                    auto s = new list_node;
+                    s->nodes.push_back(NODE(NODE_FOR(it)->stmts)); 
+                    NODE_FOR(it)->stmts = s;
+                }
+            }
+            NODE_FOR(it)->stmts->parent = stmts;
+
+            if (NODE_FOR(it)->optexprs[0] != nullptr && NODE_FOR(it)->optexprs[0]->get_token() == AST::DEFINITION_VAR) {
+                auto type = find_symbol(stmts, DEF(NODE_FOR(it)->optexprs[0])->type->name);
+                if (type == nullptr) { 
+                    std::cout << "тип не найден: var: " << std::endl;
+                    abort();
+                }
+                if (!VARIABLES(type->get_token())) {
+                    std::cout << "Неправильное тип : var: " << std::endl;
+                    abort();
+                }
+
+                list_node *l = DEF(NODE_FOR(it)->optexprs[0])->exprs.vars;
+                create_variables(NODE_FOR(it)->stmts, l, TYPE(type));
+                def = 1;
+            }
+            for (int i = def; i < 3; i ++) {
+                if (NODE_FOR(it)->optexprs[i] == nullptr) {
+                    if (check_expr(NODE_FOR(it)->stmts, NODE_FOR(it)->optexprs[i])) {
+                        std::cout << "Ошибка в выражении while" << std::endl;
+                        abort();
+                    }
+                }
+            }
+
+            create_symbol_tables(NODE_FOR(it)->stmts);
         } else {
-            std::cout << "Wrong token: " << print_token(t) << std::endl;
+            // std::cout << "Wrong token: " << print_token(t) << std::endl;
         }
     }
 }
 
 
-int main(void) {
+int main(int argc, char *argv[]) {
+    tty_file.open(argv[1]);
+
+    if (!tty_file.is_open()) {
+        std::cout << RED "Терминал не открыт!" COM << std::endl;
+    }
+
     analysis("test-file.c");
 
     program.symbols["void"]     = new Symbol(AST::VOID, new Elementary_type(AST::VOID));
@@ -511,12 +531,8 @@ int main(void) {
     program.parent = nullptr;
 
 
-    // report();
-    std::cout << "=== === ===" << std::endl;
+    std::cout << "=== === ===\n" << std::endl;
     create_symbol_tables(&program);
-    std::cout << "=== === ===" << std::endl;
-    print_table(&program);
-    std::cout << "=== === ===" << std::endl;
     print_main();
 
     return 0;

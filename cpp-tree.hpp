@@ -11,7 +11,10 @@
 #define TYPE(X)         (reinterpret_cast<Elementary_type*>(X))
 #define FUN(X)          (reinterpret_cast<Function_type*>(X))
 #define FUN_CALL(X)     (reinterpret_cast<Function_call*>(X))
-#define IF(X)           (reinterpret_cast<if_class*>(X))
+
+#define NODE_IF(X)           (reinterpret_cast<if_class*>(X))
+#define NODE_WHILE(X)        (reinterpret_cast<while_class*>(X))
+#define NODE_FOR(X)          (reinterpret_cast<for_class*>(X))
 
 #define DEF(X)          (reinterpret_cast<Define_class*>(X))
 
@@ -19,13 +22,21 @@
 #define SYM_FUN(X)      (reinterpret_cast<Symbol_Fun*>(X))
 
 
-#define OPERATORS(X) ((X) >= AST::ASSIGN && (X) <= AST::OR)
-#define VARIABLES(X) ((X) >= AST::BOOL && (X) <= AST::ENUM)
+#define OPERATORS(X)        ((X) >= AST::ASSIGN && (X) <= AST::OR)
+#define VARIABLES(X)        ((X) >= AST::BOOL && (X) <= AST::ENUM)
+#define CONSTRUCTIONS(X)    ((X) >= AST::IF && (X) <= AST::WHILE)
+
+#define STMT(X) (OPERATORS(X) || CONSTRUCTIONS(X) || X == AST::IDENTIFIER || X == AST::NUMBER)
 
 #define COM "\033[0m"
 #define RED "\033[31m"
 #define GRN "\033[32m"
 #define GLD "\033[33m"
+#define BLUE "\033[34m"
+#define PRP "\033[35m"
+#define LBL "\033[36m"
+
+#define CLEAR "\033[2J\033[H"
 
 
 typedef class Program_class *Program;
@@ -141,10 +152,13 @@ public:
 
 class for_class : public node {
 public:
-    for_class(Expression_class *c, list_node *s) : node(AST::WHILE), condition(c), stmts(s) {};
+    for_class(list_node *s, Expression_class* e1, Expression_class* e2, Expression_class* e3) : node(AST::FOR), stmts(s) {
+        optexprs[0] = e1;
+        optexprs[1] = e2;
+        optexprs[2] = e3;
+    };
 
-    Expression_class *condition;
-    std::array<Expression_class*, 3> *optexprs;
+    Expression_class* optexprs[3];
     list_node *stmts;
 };
 
@@ -161,6 +175,14 @@ public:
         node *def;
     } exprs;
 };
+
+class tree_ref {
+public:
+    tree_ref(Expression_class *n, tree_ref *p) : node(n), parent(p) {};
+    tree_ref(Expression_class *n) : tree_ref(n, nullptr) {};
+    Expression_class *node;
+    tree_ref *parent;
+} ;
 
 // <== Other ==>
 

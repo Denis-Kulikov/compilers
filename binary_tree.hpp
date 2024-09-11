@@ -42,6 +42,8 @@ namespace AST
         IDENTIFIER,
         NUMBER,
         
+        FUNCTION_CALL,
+
         ASSIGN,
         PLUS,
         MINUS,
@@ -69,8 +71,6 @@ namespace AST
         
         AND,
         OR,
-
-        FUNCTION_CALL,
 
         EXPRS,
         STMT,
