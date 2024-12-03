@@ -9,6 +9,35 @@ tree *tree_root;
 list_node program;
 
 std::ofstream tty_file;
+tree* node_debug;
+
+const unsigned int priority[AST::EXPRS - AST::IDENTIFIER + 1] = {
+    /* IDENTIFIER    */ 0,   // наивысший приоритет для идентификаторов и чисел
+    /* NUMBER        */ 0,   // наивысший приоритет для чисел
+    /* FUNCTION_CALL */ 0,   // вызов функции
+    /* ASSIGN        */ 16,   // присваивание
+    /* PLUS          */ 6,    // сложение
+    /* MINUS         */ 6,    // вычитание
+    /* MULTIPLY      */ 5,    // умножение
+    /* DIVIDE        */ 5,    // деление
+    /* PRE_INC       */ 3,    // префиксный инкремент
+    /* PRE_DEC       */ 3,    // префиксный декремент
+    /* INC_POST      */ 2,    // постфиксный инкремент
+    /* DEC_POST      */ 2,    // постфиксный декремент
+    /* BIT_AND       */ 1,    // побитовое И
+    /* BIT_OR        */ 1,    // побитовое ИЛИ
+    /* BIT_XOR       */ 1,    // побитовое исключающее ИЛИ
+    /* SHL           */ 1,    // сдвиг влево
+    /* SHR           */ 1,    // сдвиг вправо
+    /* EQ            */ 1,    // равно
+    /* NEQ           */ 1,    // не равно
+    /* LT            */ 1,    // меньше
+    /* LE            */ 1,    // меньше или равно
+    /* GT            */ 1,    // больше
+    /* GE            */ 1,    // больше или равно
+    /* AND           */ 1,    // логическое И
+    /* OR            */ 1     // логическое ИЛИ
+};
 
 
 void send_message_to_tty(const std::string& message) {
@@ -83,64 +112,45 @@ void print_type(const Elementary_type *t) {
 
 void print_code(list_node *stmts, std::size_t depth);
 
-void correct_order_expr(tree_ref *expr) {
-    const unsigned int priority[AST::EXPRS - AST::IDENTIFIER + 1] = {
-        /* IDENTIFIER    */ 15,   // наивысший приоритет для идентификаторов и чисел
-        /* NUMBER        */ 15,   // наивысший приоритет для чисел
-        /* FUNCTION_CALL */ 15,    // вызов функции
-        /* ASSIGN        */ 16,   // присваивание
-        /* PLUS          */ 6,   // сложение
-        /* MINUS         */ 6,   // вычитание
-        /* MULTIPLY      */ 5,   // умножение
-        /* DIVIDE        */ 5,   // деление
-        /* PRE_INC       */ 3,   // префиксный инкремент
-        /* PRE_DEC       */ 3,   // префиксный декремент
-        /* INC_POST      */ 2,   // постфиксный инкремент
-        /* DEC_POST      */ 2,   // постфиксный декремент
-        /* BIT_AND       */ 0,   // побитовое И
-        /* BIT_OR        */ 0,  // побитовое ИЛИ
-        /* BIT_XOR       */ 0,   // побитовое исключающее ИЛИ
-        /* SHL           */ 0,   // сдвиг влево
-        /* SHR           */ 0,   // сдвиг вправо
-        /* EQ            */ 0,  // равно
-        /* NEQ           */ 0,  // не равно
-        /* LT            */ 0,  // меньше
-        /* LE            */ 0,  // меньше или равно
-        /* GT            */ 0,  // больше
-        /* GE            */ 0,  // больше или равно
-        /* AND           */ 0,  // логическое И
-        /* OR            */ 0   // логическое ИЛИ
-    };
-
-    if (expr->node->right == nullptr) return; // для 
+void correct_order_expr(tree_ref *expr, bool RIGHT) {
+    if (expr->node->get_token() == AST::IDENTIFIER || expr->node->get_token() == AST::NUMBER || expr->node->get_token() == AST::FUNCTION_CALL
+        || expr->node->right == nullptr) return; 
 
     tree_ref right(EXPR(expr->node->right), expr);
 
     if (priority[expr->node->get_token() - AST::IDENTIFIER] < priority[right.node->get_token() - AST::IDENTIFIER]) {
-        // std::cout << print_token(expr->node->get_token()) << ' ' << priority[expr->node->get_token() - AST::IDENTIFIER] << ' '
-        // << print_token(right.node->get_token()) << ' ' << priority[right.node->get_token() - AST::IDENTIFIER] << std::endl;
-        if (right.node->get_token() <= AST::FUNCTION_CALL) return;
-        if (expr->parent == nullptr) { return; }
-        expr->parent->node->right = right.node;
+        if (RIGHT)
+            expr->parent->node->right = right.node;
+        else 
+            expr->parent->node->left = right.node;
+
         expr->node->right = right.node->left;
         right.node->left = expr->node;
-        return;
+
+        tree_ref r(EXPR(right.node), expr->parent);
+        correct_order_expr(&r, true);
     } 
 
-    if (right.node->get_token() == AST::IDENTIFIER || right.node->get_token() == AST::NUMBER || right.node->get_token() == AST::FUNCTION_CALL)
-        return;
+    if (expr->node->right != nullptr) {
+        tree_ref node(EXPR(expr->node->right), expr);
+        correct_order_expr(&node, true);
+    }
 
-    tree_ref e(EXPR(right.node), expr);
-    correct_order_expr(&e);
+    if (expr->node->left != nullptr) {
+        tree_ref node(EXPR(expr->node->left), expr);
+        correct_order_expr(&node, false);
+    }
 }
 
 void correct_order_expr(Expression_class *expr) {
     if (expr->get_token() == AST::IDENTIFIER || expr->get_token() == AST::NUMBER) return;
+    node_debug = TREE(expr);
     tree_ref root(expr);
+    tree_ref right(EXPR(expr->right), &root);
     tree_ref left(EXPR(expr->left), &root);
-    correct_order_expr(&root);
-    if (expr->left->get_token() == AST::IDENTIFIER || expr->left->get_token() == AST::NUMBER) return;
-    correct_order_expr(&left);}
+    correct_order_expr(&right, true);
+    correct_order_expr(&left, false);
+}
 
 
 void print_term(node *n, std::size_t depth) {
@@ -157,19 +167,12 @@ void print_operation(node *n, std::size_t depth) {
             node = node->left;
         std::cout <<  TERM(node)->value;
     }
-    // {std::ofstream out("tree.txt");
-    // serialize(TREE(it), out);
-    // out.close();
-    // getchar();}
 
-    {
-        correct_order_expr(EXPR(n));
-        std::ofstream out("tree.txt");
-        serialize(TREE(n), out);
-        out.close();
-        getchar();
-    }
-    // std::cout << std::endl;
+    correct_order_expr(EXPR(n));
+    std::ofstream out("tree.txt");
+    serialize(TREE(n), out);
+    out.close();
+    getchar();
 }
 
 void print_if(node *n, std::size_t depth)

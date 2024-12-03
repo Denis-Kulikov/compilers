@@ -6,7 +6,8 @@ float calc(int a) {
 }
 
 int main() {
-    int x = 10;
+    int x = 10, z = 1 * 2 + 3 * 4 + 5 * 6;
+    // int x = 10, z = (1 * 2 + 3 * 4) + (1 * 2 + 3 * 4);
     {
         int x = 20;
         float result = calc(x);
